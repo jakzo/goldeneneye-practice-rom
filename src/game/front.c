@@ -12821,15 +12821,6 @@ Gfx * constructor_menu19_spectrum(Gfx * DL)
 
 void frontChangeMenu(MENU menu, s32 reload)
 {
-    // if (menu == MENU_LEGAL_SCREEN ||
-    //     menu == MENU_NINTENDO_LOGO ||
-    //     menu == MENU_RAREWARE_LOGO ||
-    //     menu == MENU_EYE_INTRO ||
-    //     menu == MENU_GOLDENEYE_LOGO)
-    // {
-    //     menu = MENU_FILE_SELECT;
-    // }
-
     if ((menu == MENU_RUN_STAGE) || (menu == MENU_SPECTRUM_EMU))
     {
         is_emulating_spectrum = TRUE;
