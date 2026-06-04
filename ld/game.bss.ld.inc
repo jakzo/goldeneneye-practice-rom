@@ -87,6 +87,7 @@
       build/OUTCODE/src/game/gobjdata2.o (.bss);
       build/OUTCODE/src/game/cobjdata.o (.bss);
       build/OUTCODE/src/game/cheat_buttons.o (.bss);
+      build/OUTCODE/src/game/practice_states.o (.bss);
       build/OUTCODE/src/game/unk_092890.o (.bss);
       build/OUTCODE/src/game/unk_092E50.o (.bss);
       build/OUTCODE/src/game/player.o (.bss);

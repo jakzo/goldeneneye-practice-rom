@@ -18,6 +18,7 @@
 #include "player.h"
 #include "player_2.h"
 #include "assets/obseg/text/LmiscE.h"
+#include "practice_states.h"
 
 //#include "chraicommands.h" /* needed for ai list commands, remove when moving global ai lists to chraicommands/chrai */
 // bss
@@ -868,6 +869,21 @@ void cheat_buttons_mp_related(void)
     u16 jgb;
     u16 jgbptf;
     u16 jgb_trig;
+
+    /* Savestate System Custom Hotkeys check (Hold L + D-pad Down to Save, Hold L + D-pad Up to Load) */
+    u16 raw_jgb = joyGetButtons(get_cur_playernum(), ANY_BUTTON);
+    u16 raw_jgbptf = joyGetButtonsPressedThisFrame(get_cur_playernum(), ANY_BUTTON);
+    if ((raw_jgb & L_TRIG) && (raw_jgbptf & D_JPAD))
+    {
+        save_player_state();
+        return;
+    }
+    if ((raw_jgb & L_TRIG) && (raw_jgbptf & U_JPAD))
+    {
+        load_player_state();
+        return;
+    }
+
 
     jgb = joyGetButtons(get_cur_playernum(), ANY_BUTTON);
     jgbptf = joyGetButtonsPressedThisFrame(get_cur_playernum(), ANY_BUTTON);
