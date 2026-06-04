@@ -875,12 +875,12 @@ void cheat_buttons_mp_related(void)
     u16 raw_jgbptf = joyGetButtonsPressedThisFrame(get_cur_playernum(), ANY_BUTTON);
     if ((raw_jgb & L_TRIG) && (raw_jgbptf & D_JPAD))
     {
-        save_player_state();
+        save_game_state();
         return;
     }
     if ((raw_jgb & L_TRIG) && (raw_jgbptf & U_JPAD))
     {
-        load_player_state();
+        load_game_state();
         return;
     }
 
