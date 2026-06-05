@@ -5,6 +5,5 @@
 
 void save_game_state(void);
 void load_game_state(void);
-bool practice_check_hotkeys(void);
 
 #endif /* PRACTICE_STATES_H */

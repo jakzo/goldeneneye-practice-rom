@@ -18,7 +18,7 @@
 #include "player.h"
 #include "player_2.h"
 #include "assets/obseg/text/LmiscE.h"
-#include "practice/practice_states.h"
+#include "practice/practice_hotkeys.h"
 
 //#include "chraicommands.h" /* needed for ai list commands, remove when moving global ai lists to chraicommands/chrai */
 // bss

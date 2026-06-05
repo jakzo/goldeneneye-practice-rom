@@ -406,18 +406,3 @@ void load_game_state(void)
     sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
     HUDMESSAGEBOTTOM("STATE LOADED");
 }
-
-bool practice_check_hotkeys(void)
-{
-    u16 raw_jgb = joyGetButtons(get_cur_playernum(), ANY_BUTTON);
-    u16 raw_jgbptf = joyGetButtonsPressedThisFrame(get_cur_playernum(), ANY_BUTTON);
-    if ((raw_jgb & L_TRIG) && (raw_jgbptf & D_JPAD)) {
-        save_game_state();
-        return TRUE;
-    }
-    if ((raw_jgb & L_TRIG) && (raw_jgbptf & U_JPAD)) {
-        load_game_state();
-        return TRUE;
-    }
-    return FALSE;
-}
