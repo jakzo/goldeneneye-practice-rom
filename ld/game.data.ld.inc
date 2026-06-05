@@ -89,6 +89,7 @@
       build/OUTCODE/src/game/cheat_buttons.o (.data);
       build/OUTCODE/src/practice/practice_states.o (.data);
       build/OUTCODE/src/practice/practice_config.o (.data);
+      build/OUTCODE/src/practice/practice_hotkeys.o (.data);
       build/OUTCODE/src/game/unk_092890.o (.data);
       build/OUTCODE/src/game/unk_092E50.o (.data);
       build/OUTCODE/src/game/player.o (.data);
