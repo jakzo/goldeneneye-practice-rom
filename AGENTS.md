@@ -68,7 +68,7 @@ When tasked with modification or analysis of gameplay, look here first:
   * `ge007.ld`: Top-level linker specification arranging code segments and overlays.
   * `ld/`: Segment definitions specifying BSS/text/rodata address overlays.
 
-When modifying original non-practice source code or adding code to existing non-practice files, an `#if PRACTICE_ROM` conditional should be wrapped around the modifications/additions with any original code in an `#else` block. Code inside the `practice` folder does not need these conditional blocks since it is all new.
+All new logic for the practice ROM is stored in the files under `src/practice`. If logic needs to be added to existing files, it should be added within an `#ifdef PRACTICE_ROM` block. If any code is modified, the new version should exist in the `#ifdef` block with the original still existing, unmodified in the `#else` block. This is so that changes to the original code are easy to find and compare to original.
 
 ---
 

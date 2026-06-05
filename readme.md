@@ -13,3 +13,7 @@ This ROM provides tools for practicing speedruns of Goldeneye 007 on the Nintend
     - During gameplay press `L + D-Up` to load current state
     - Note that many bits of state do not yet get restored, like killed guards and destroyed props
 - **Skips legal and logo screens on game startup**
+
+## Development
+
+See [readme-dev.md](readme-dev.md).
