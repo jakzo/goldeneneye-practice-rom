@@ -37,4 +37,11 @@ bool check_aztec_completed_any_folder_secret_00(void);
 bool fileIsEgyptCompletedOn00AnyFolder(void);
 LEVEL_SOLO_SEQUENCE fileGetHighestStageUnlockedAnyFolder(void);
 
+#ifdef PRACTICE_ROM
+save_data *fileGetSaveForFoldernum(u32 folder);
+void fileBuildWriteNewSave(u32 folder);
+void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty, s32 newtime);
+void fileWriteSave(save_data *save);
+#endif
+
 #endif

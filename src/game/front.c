@@ -26,6 +26,7 @@
 #include "objective_status.h"
 #include "player.h"
 #include "practice/practice_config.h"
+#include "practice/practice_unlock.h"
 #include "spectrum.h"
 #include "textrelated.h"
 #include "blood_animation.h"
@@ -2273,6 +2274,7 @@ void init_menu05_fileselect(void)
         // Normally done during legal screen, done here since that's skipped
         fileValidateSaves();
     }
+    practice_unlock_default_profile();
 #endif
 
     prev_keypresses = FALSE;
