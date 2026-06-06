@@ -870,12 +870,6 @@ void cheat_buttons_mp_related(void)
     u16 jgbptf;
     u16 jgb_trig;
 
-#if PRACTICE_ROM
-    if (practice_check_hotkeys()) {
-        return;
-    }
-#endif
-
     jgb = joyGetButtons(get_cur_playernum(), ANY_BUTTON);
     jgbptf = joyGetButtonsPressedThisFrame(get_cur_playernum(), ANY_BUTTON);
     jgb_trig = (jgb & (L_TRIG | R_TRIG));

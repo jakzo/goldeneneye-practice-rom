@@ -44,6 +44,7 @@
 #include "unk_0B3200.h"
 #include "practice/practice_timescale.h"
 #include "practice/practice_ui.h"
+#include "practice/practice_hotkeys.h"
 
 #ifdef VERSION_EU
 
@@ -11716,6 +11717,10 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     if (1);
 #endif
 
+#if PRACTICE_ROM
+    if (!practice_check_hotkeys()) {
+#endif
+
     if ((g_CameraMode == CAMERAMODE_NONE) || ((g_CameraMode == CAMERAMODE_FP) && (is_timer_active != 0)) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
     {
         if (get_cur_playernum() == 0)
@@ -11729,6 +11734,10 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     {
         bondviewFrozenMoveBond(stick_x, stick_y, buttons, (u16) g_CurrentPlayer->buttons_pressed);
     }
+
+#if PRACTICE_ROM
+    }
+#endif
 
 #if defined(BUGFIX_R1)
     watch_time_0 += jpD_800484D0;
