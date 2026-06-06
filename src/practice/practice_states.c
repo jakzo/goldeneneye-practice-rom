@@ -19,6 +19,7 @@
 #include "chrobjhandler.h"
 #include "assets/obseg/text/LmiscE.h"
 #include "practice_states.h"
+#include "practice_ui.h"
 
 extern void *memcpy(void *dst, const void *src, size_t count);
 extern s32 get_numguards(void);
@@ -387,14 +388,14 @@ void save_game_state(void)
 
     g_HasSavedState = TRUE;
     sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
-    HUDMESSAGEBOTTOM("STATE SAVED");
+    practice_ui_display_message("STATE SAVED");
 }
 
 void load_game_state(void)
 {
     if (g_CurrentPlayer == NULL || !g_HasSavedState) {
         if (!g_HasSavedState) {
-            HUDMESSAGEBOTTOM("NO SAVED STATE");
+            practice_ui_display_message("NO SAVED STATE");
         }
         return;
     }
@@ -404,5 +405,5 @@ void load_game_state(void)
     load_doors_state();
 
     sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
-    HUDMESSAGEBOTTOM("STATE LOADED");
+    practice_ui_display_message("STATE LOADED");
 }

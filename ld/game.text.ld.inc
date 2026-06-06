@@ -91,6 +91,7 @@
       build/OUTCODE/src/practice/practice_config.o (.text);
       build/OUTCODE/src/practice/practice_hotkeys.o (.text);
       build/OUTCODE/src/practice/practice_timescale.o (.text);
+      build/OUTCODE/src/practice/practice_ui.o (.text);
       build/OUTCODE/src/game/unk_092890.o (.text);
       build/OUTCODE/src/game/unk_092E50.o (.text);
       build/OUTCODE/src/game/player.o (.text);

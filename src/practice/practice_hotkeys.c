@@ -8,7 +8,7 @@
 #include "practice_states.h"
 #include "practice_config.h"
 #include "practice_timescale.h"
-#include "bondview.h"
+#include "practice_ui.h"
 
 extern int sprintf(char *dst, const char *fmt, ...);
 
@@ -38,7 +38,7 @@ bool practice_check_hotkeys(void)
             f32 new_time_scale = g_TimeScale - 0.1f;
             set_time_scale(new_time_scale);
             sprintf(msg, "TIME SCALE: %.1f", g_TimeScale);
-            HUDMESSAGEBOTTOM(msg);
+            practice_ui_display_message(msg);
             return TRUE;
         }
         if (jgbptf & R_JPAD) {
@@ -46,7 +46,7 @@ bool practice_check_hotkeys(void)
             f32 new_time_scale = g_TimeScale + 0.1f;
             set_time_scale(new_time_scale);
             sprintf(msg, "TIME SCALE: %.1f", g_TimeScale);
-            HUDMESSAGEBOTTOM(msg);
+            practice_ui_display_message(msg);
             return TRUE;
         }
     } else if (g_IsTimePaused) {

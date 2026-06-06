@@ -43,6 +43,7 @@
 #include "os_extension.h"
 #include "unk_0B3200.h"
 #include "practice/practice_timescale.h"
+#include "practice/practice_ui.h"
 
 #ifdef VERSION_EU
 
@@ -17119,6 +17120,10 @@ void bondviewIntroCameraTextTick(void)
             }
         }
     }
+
+#ifdef PRACTICE_ROM
+    practice_ui_tick();
+#endif
 }
 
 Gfx* sub_GAME_7F08A5FC(Gfx* arg0)
@@ -17130,6 +17135,10 @@ Gfx* sub_GAME_7F08A5FC(Gfx* arg0)
     s32 view_top;
     s32 view_top_offset;
     s32 view_left_offset;
+
+#ifdef PRACTICE_ROM
+    arg0 = practice_ui_render(arg0);
+#endif
 
     if ((g_CurrentPlayer->hudmessoff == FALSE) && (g_CurrentPlayer->bondmesscnt >= 0) && (g_CurrentPlayer->mpmenuon == FALSE))
     {
