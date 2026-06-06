@@ -37,7 +37,12 @@
 /**
  * Number of entries in the TLB Management table.
  */
+#ifdef PRACTICE_ROM
+// TLB pages hold code, practice rom adds a lot of code so need to increase this
+#define MANAGEMENT_TABLE_COUNT  512
+#else
 #define MANAGEMENT_TABLE_COUNT  128
+#endif
 
 /**
  * Number of entries in the mapping table.

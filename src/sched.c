@@ -1,5 +1,7 @@
 #include <ultra64.h>
 #include <PR/os.h>
+// Needed this to fix build for some reason?
+#include <assert.h>
 #include "init.h"
 #include "sched.h"
 #include <bondgame.h>

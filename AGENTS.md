@@ -34,7 +34,7 @@ All builds must be run inside Docker since the host environment is macOS. Use th
 ### Standard Compilations
 * **Build NTSC-US ROM (with Parallel Jobs)**:
   ```bash
-  docker run --rm -v $(pwd):/home/dev goldeneye make -j4 COMPARE=0
+  docker run --rm -v $(pwd):/home/dev goldeneye make -j8 COMPARE=0
   ```
 * **Clean Build Files**:
   ```bash

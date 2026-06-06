@@ -3,7 +3,8 @@ MAPFILE="./build/"$2"/ge007."$2".map"
 #this script is a hacky mess that can most definately be improved
 #fixme as I will fail if vaddr of data gets moved!!!
 DATASEG_START=$(printf "%d\n" 0x$(grep ${MAPFILE} -e '__csegtempPos =' | cut -d "x" -f3))
-DATASEG_LEN=$(printf "%d\n" 0x$(grep ${MAPFILE} -e 'load address 0x0000000000c00000' | cut -d "x" -f3 | cut -d " " -f1))
+DATASEG_HEXADDR=$(printf "%016x\n" ${DATASEG_START})
+DATASEG_LEN=$(printf "%d\n" 0x$(grep ${MAPFILE} -e "load address 0x${DATASEG_HEXADDR}" | cut -d "x" -f3 | cut -d " " -f1))
 
 #build/rebuild aaa_rip
 [ ! -x tools/aaa_rip/aaa_rip ] && make -C tools/aaa_rip
@@ -27,7 +28,11 @@ echo "size=${RZSIZE}"
 CDATA_POS=$(printf "%d\n" 0x$(grep  ${MAPFILE} -e 'c_data_array' | cut -d "x" -f 2 | cut -d " " -f 1 ))
 #CDATA_MAX_SIZE=$(printf "%d\n" 0x$(grep  '${MAPFILE}' -e '.c_data         0x0000000000021990' | cut -d "x" -f 2 ))
 #CDATA_POS=137616
-CDATA_MAX_SIZE=72704
+# PRACTICE_ROM: Increased this limit here and in c_data_filler to fit extra
+# practice ROM data. Cannot go higher since this and .bss need to fit in the
+# first 1mb of the ROM to be loaded on startup.
+# CDATA_MAX_SIZE=72704
+CDATA_MAX_SIZE=196608
 
 echo "maxsize=${CDATA_MAX_SIZE}"
 

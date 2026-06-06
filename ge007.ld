@@ -192,7 +192,9 @@ SECTIONS
 
 
 
-   __csegtempPos = 0xC00000;
+   /* PRACTICE_ROM: Moving up since all our new code is pushing into this seg */
+   /* __csegtempPos = 0xC00000; */
+   __csegtempPos = 0x1000000;
    __dataSegmentVaddrStart = _codeSegmentEnd + 0x10000000;
 
    BEGIN_SEG(csegment, __csegtempPos, __dataSegmentVaddrStart)
