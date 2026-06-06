@@ -140,6 +140,9 @@ static void load_bond_state(void)
     g_CurrentPlayer->hands[1].rocket = NULL;
 
     // Request the engine to load the 1st person weapon models on demand
+    g_CurrentPlayer->lock_hand_model[GUNRIGHT] = g_SavedPlayerState.lock_hand_model[GUNRIGHT];
+    g_CurrentPlayer->lock_hand_model[GUNLEFT] = g_SavedPlayerState.lock_hand_model[GUNLEFT];
+
     place_item_in_hand_swap_and_make_visible(GUNRIGHT, g_SavedPlayerState.hand_item[GUNRIGHT]);
     place_item_in_hand_swap_and_make_visible(GUNLEFT, g_SavedPlayerState.hand_item[GUNLEFT]);
     g_CurrentPlayer->cur_item_weapon_getname = g_SavedPlayerState.cur_item_weapon_getname;
