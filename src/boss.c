@@ -39,6 +39,8 @@
 #include "game/player.h"
 #include "game/unk_0C0A70.h"
 #include "PR/R4300.h"
+#include "practice/practice_config.h"
+#include "practice/practice_unlock.h"
 
 /**
  * @file boss.c
@@ -314,6 +316,14 @@ void bossMainloop(void)
 
     done = 0;
     reset_mem_bank_5();
+
+#ifdef PRACTICE_ROM
+    practice_unlock_default_profile();
+
+    if (practice.boot_level != LEVELID_NONE) {
+        g_StageNum = practice.boot_level;
+    }
+#endif
 
     if (tokenFind(1, "-level_") != NULL)
     {

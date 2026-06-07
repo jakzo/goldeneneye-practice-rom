@@ -21,6 +21,13 @@
 #include "practice_states.h"
 #include "practice_ui.h"
 
+// === TODO LIST OF THINGS NOT YET SAVED/RESTORED ===
+// Bond:
+// - momentum
+// - blood on death
+// - camera rotation on death
+// - crashes when restoring during death replay
+
 extern void *memcpy(void *dst, const void *src, size_t count);
 extern s32 get_numguards(void);
 extern PropRecord pos_data_entry[];
