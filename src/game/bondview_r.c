@@ -15,6 +15,8 @@
 #include "game/player_2.h"
 #include "game/ramromreplay.h"
 #include "game/stan.h"
+#include "practice/practice_config.h"
+#include "fog.h"
 
 
 /**
@@ -453,7 +455,18 @@ void bondviewLoadSetupIntroSection(void)
     
     if (getPlayerCount() == 1)
     {
+
+#ifdef PRACTICE_ROM
+        if (practice.disable_intro_cutscenes) {
+            bondviewSetCameraMode(CAMERAMODE_FP);
+            fogLoadLevelEnvironment(bossGetStageNum(), 1);
+        } else {
+            bondviewSetCameraMode(CAMERAMODE_INTRO);
+        }
+#else
         bondviewSetCameraMode(CAMERAMODE_INTRO);
+#endif
+
     }
     else
     {
