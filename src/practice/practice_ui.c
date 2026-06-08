@@ -33,8 +33,8 @@ extern void *memcpy(void *dst, const void *src, size_t count);
 #define LOG_MESSAGE_DISPLAY_TIME_S 2.0f
 #define SLIDE_RATE_PER_S 640.0f
 #define SLIDE_DURATION 1.0f
-#define MARGIN_BOTTOM 8
-#define MARGIN_RIGHT 6
+#define MARGIN_BOTTOM 9
+#define MARGIN_RIGHT 5
 #define LINE_SPACING 0
 
 typedef enum {
@@ -174,91 +174,101 @@ Gfx *practice_ui_render(Gfx *gdl) {
   s32 right_edge;
   OSTime current_time;
 
-  if (g_LogQueueCount == 0)
-    return gdl;
-
-  ensure_timing_initialized();
-
   gdl = microcode_constructor(gdl);
 
   // Reset the scissor box to cover the entire screen so we are not clipped by
   // viewports
   gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
 
-  // Position it right-aligned at the bottom-right of the entire screen
-  right_edge = viGetX() - MARGIN_RIGHT;
-  current_y = viGetY() - MARGIN_BOTTOM;
-  current_time = osGetTime();
+  // Render green "P" indicator at bottom-left of the visible area
+  {
+    struct fontchar *fontChars = ptrFontZurichBoldChars;
+    struct fontchar *charP = &fontChars['P'];
+    s32 p_x = MARGIN_RIGHT;
+    s32 p_y = viGetY() - charP->baseline - charP->height - MARGIN_BOTTOM;
+    gdl = textRenderGlow(gdl, &p_x, &p_y, "P", fontChars, ptrFontZurichBold,
+                         0x00FF00FF, 0x000000FF, (s16)viGetX(), (s16)viGetY(),
+                         0, 0);
+  }
 
-  for (i = g_LogQueueCount - 1; i >= 0; i--) {
-    s32 idx = (g_LogQueueStart + i) % MAX_LOG_MESSAGES;
-    LogMessage *msg = &g_LogQueue[idx];
-    s32 y_bottom = current_y;
-    s32 y_top;
-    OSTime age_cycles;
-    f32 slide_offset = 0.0f;
-    s32 view_left;
-    s32 view_horiz;
-    s32 view_vert;
-    s32 view_top;
-    u32 color_fg = 0xFFFFFFFF;
-    u32 color_glow = 0x000000FF;
+  if (g_LogQueueCount > 0) {
+    ensure_timing_initialized();
 
-    if (msg->width < 0) {
-      textMeasure(&msg->height, &msg->width, msg->text,
-                  (struct fontchar *)LOGGER_FONT_CHARS,
-                  (struct font *)LOGGER_FONT_TABLE, 0);
-    }
+    // Position it right-aligned at the bottom-right of the entire screen
+    right_edge = viGetX() - MARGIN_RIGHT;
+    current_y = viGetY() - MARGIN_BOTTOM;
+    current_time = osGetTime();
 
-    y_top = y_bottom - msg->height;
+    for (i = g_LogQueueCount - 1; i >= 0; i--) {
+      s32 idx = (g_LogQueueStart + i) % MAX_LOG_MESSAGES;
+      LogMessage *msg = &g_LogQueue[idx];
+      s32 y_bottom = current_y;
+      s32 y_top;
+      OSTime age_cycles;
+      f32 slide_offset = 0.0f;
+      s32 view_left;
+      s32 view_horiz;
+      s32 view_vert;
+      s32 view_top;
+      u32 color_fg = 0xFFFFFFFF;
+      u32 color_glow = 0x000000FF;
 
-    if (y_bottom < 0) {
-      cull_queue(i + 1);
-      break;
-    }
+      if (msg->width < 0) {
+        textMeasure(&msg->height, &msg->width, msg->text,
+                    (struct fontchar *)LOGGER_FONT_CHARS,
+                    (struct font *)LOGGER_FONT_TABLE, 0);
+      }
 
-    age_cycles = current_time - msg->timestamp;
-    if (age_cycles > g_LogLifetimeCycles) {
-      OSTime slide_time_cycles = age_cycles - g_LogLifetimeCycles;
-      if (slide_time_cycles >= g_LogSlideCycles) {
+      y_top = y_bottom - msg->height;
+
+      if (y_bottom < 0) {
         cull_queue(i + 1);
         break;
       }
-      slide_offset = (f32)(s32)slide_time_cycles * g_LogSlideRate;
+
+      age_cycles = current_time - msg->timestamp;
+      if (age_cycles > g_LogLifetimeCycles) {
+        OSTime slide_time_cycles = age_cycles - g_LogLifetimeCycles;
+        if (slide_time_cycles >= g_LogSlideCycles) {
+          cull_queue(i + 1);
+          break;
+        }
+        slide_offset = (f32)(s32)slide_time_cycles * g_LogSlideRate;
+      }
+
+      view_left = right_edge - msg->width + (s32)slide_offset;
+      view_horiz = right_edge + (s32)slide_offset;
+      view_vert = y_bottom - msg->height;
+      view_top = y_bottom;
+
+      // Draw dark background box
+      gdl = draw_blackbox_to_screen(gdl, &view_left, &view_vert, &view_horiz,
+                                    &view_top);
+
+      // Determine colors based on log level
+      switch (msg->level) {
+      case LOG_LEVEL_DEBUG:
+        color_fg = 0xA0A0A0FF; // Grey
+        break;
+      case LOG_LEVEL_WARN:
+        color_fg = 0xFFFF00FF; // Yellow
+        break;
+      case LOG_LEVEL_ERROR:
+        color_fg = 0xFF0000FF; // Red
+        break;
+      case LOG_LEVEL_INFO:
+      default:
+        color_fg = 0xFFFFFFFF; // White
+        break;
+      }
+
+      // Render text with glow
+      gdl = textRenderGlow(gdl, &view_left, &view_vert, msg->text,
+                           LOGGER_FONT_CHARS, LOGGER_FONT_TABLE, (s32)color_fg,
+                           color_glow, (s16)(s32)viGetX(), (s16)viGetY(), 0, 0);
+
+      current_y = y_top - LINE_SPACING; // Move up for the next message
     }
-
-    view_left = right_edge - msg->width + (s32)slide_offset;
-    view_horiz = right_edge + (s32)slide_offset;
-    view_vert = y_bottom - msg->height;
-    view_top = y_bottom;
-
-    // Draw dark background box
-    gdl = draw_blackbox_to_screen(gdl, &view_left, &view_vert, &view_horiz,
-                                  &view_top);
-
-    // Determine colors based on log level
-    switch (msg->level) {
-    case LOG_LEVEL_DEBUG:
-      color_fg = 0xA0A0A0FF; // Grey
-      break;
-    case LOG_LEVEL_WARN:
-      color_fg = 0xFFFF00FF; // Yellow
-      break;
-    case LOG_LEVEL_ERROR:
-      color_fg = 0xFF0000FF; // Red
-      break;
-    case LOG_LEVEL_INFO:
-    default:
-      color_fg = 0xFFFFFFFF; // White
-      break;
-    }
-
-    // Render text with glow
-    gdl = textRenderGlow(gdl, &view_left, &view_vert, msg->text,
-                         LOGGER_FONT_CHARS, LOGGER_FONT_TABLE, (s32)color_fg,
-                         color_glow, (s16)(s32)viGetX(), (s16)viGetY(), 0, 0);
-
-    current_y = y_top - LINE_SPACING; // Move up for the next message
   }
 
   gdl = combiner_bayer_lod_perspective(gdl);
