@@ -12,6 +12,8 @@ on:
 jobs:
   build-patch:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -66,6 +68,13 @@ jobs:
         run: |
           xdelta3 -s baserom.u.z64 build/u/ge007.u.z64 "${{ steps.tag.outputs.filename }}"
           ls -lh "${{ steps.tag.outputs.filename }}"
+
+      - name: Verify patch produces built ROM
+        run: |
+          cp baserom.u.z64 patched.u.z64
+          xdelta3 -d -s baserom.u.z64 "${{ steps.tag.outputs.filename }}" patched.u.z64
+          sha256sum build/u/ge007.u.z64 patched.u.z64
+          diff <(xxd build/u/ge007.u.z64) <(xxd patched.u.z64)
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
