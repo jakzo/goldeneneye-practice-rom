@@ -11,7 +11,7 @@ Initial version. Adds features:
 - **Skip level intro cutscenes**
     - Starting a level goes straight into it, rather than playing the intro cutscene
 - **Skips legal and logo screens on game startup**
-- [beta] **Time scale control** 
+- [beta] **Time scale control**
     - During gameplay press `L + D-Left` to decrease game speed by 10%
     - During gameplay press `L + D-Right` to increase game speed by 10%
 - **Save automatically fully unlocked**
