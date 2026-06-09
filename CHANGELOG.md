@@ -1,3 +1,7 @@
+### Unreleased
+
+- Added hundredths to the mission end screen timer
+
 # 0.1.0
 
 Initial version. Not super useful yet since the main features are not finished yet but here it is. Adds features:
