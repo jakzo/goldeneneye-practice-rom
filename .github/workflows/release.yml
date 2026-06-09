@@ -2,7 +2,8 @@ name: Release practice ROM patch
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
     paths-ignore:
       - "*.md"
       - ".github/**"
@@ -71,7 +72,6 @@ jobs:
 
       - name: Verify patch produces built ROM
         run: |
-          cp baserom.u.z64 patched.u.z64
           xdelta3 -d -s baserom.u.z64 "${{ steps.tag.outputs.filename }}" patched.u.z64
           sha256sum build/u/ge007.u.z64 patched.u.z64
           diff <(xxd build/u/ge007.u.z64) <(xxd patched.u.z64)
