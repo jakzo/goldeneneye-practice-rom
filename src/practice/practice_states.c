@@ -33,9 +33,11 @@ typedef struct {
     coord3d previous_model_pos;
     coord3d current_room_pos;
     s32 curRoomIndex;
+    coord3d bondprevpos;
 
     // Collision
     struct collision434 field_488;
+    struct collision434 previous_collision_info;
 
     // Angles
     f32 vv_theta;
@@ -50,6 +52,53 @@ typedef struct {
     f32 vertical_bounce_adjust;
     f32 ducking_height_offset;
     s32 crouchpos;
+
+    // 3D Velocity
+    f32 field_78;
+    f32 field_7C;
+    f32 field_80;
+    f32 speedgo;
+    coord3d bondshotspeed;
+    f32 speedtheta;
+    f32 speedverta;
+
+    // Bounce Dampeners
+    f32 field_84;
+    f32 field_88;
+
+    // Height Tracking
+    f32 field_6C;
+    f32 field_70;
+    f32 stanHeight;
+
+    // Smoothed / Render Coordinates
+    coord3d field_3B8;
+    f32 field_3C4;
+    f32 field_3C8;
+    f32 field_3CC;
+
+    // Walk / Head Bob Animation State
+    s32 resetheadpos;
+    s32 resetheadrot;
+    s32 resetheadtick;
+    s32 headanim;
+    f32 headdamp;
+    s32 headwalkingtime60;
+    f32 headamplitude;
+    f32 sideamplitude;
+    coord3d headpos;
+    coord3d headlook;
+    coord3d headup;
+    coord3d headpossum;
+    coord3d headlooksum;
+    coord3d headupsum;
+    coord3d headbodyoffset;
+    f32 standheight;
+    coord3d standbodyoffset;
+    f32 standfrac;
+    coord3d standlook[2];
+    coord3d standup[2];
+    s32 standcnt;
 
     // Health / Armor
     f32 bondhealth;
@@ -87,9 +136,11 @@ static void save_bond_state(void) {
     g_SavedBondState.previous_model_pos = g_CurrentPlayer->previous_model_pos;
     g_SavedBondState.current_room_pos = g_CurrentPlayer->current_room_pos;
     g_SavedBondState.curRoomIndex = g_CurrentPlayer->curRoomIndex;
+    g_SavedBondState.bondprevpos = g_CurrentPlayer->bondprevpos;
 
     // Collision
     g_SavedBondState.field_488 = g_CurrentPlayer->field_488;
+    g_SavedBondState.previous_collision_info = g_CurrentPlayer->previous_collision_info;
 
     // Angles
     g_SavedBondState.vv_theta = g_CurrentPlayer->vv_theta;
@@ -104,6 +155,55 @@ static void save_bond_state(void) {
     g_SavedBondState.vertical_bounce_adjust = g_CurrentPlayer->vertical_bounce_adjust;
     g_SavedBondState.ducking_height_offset = g_CurrentPlayer->ducking_height_offset;
     g_SavedBondState.crouchpos = g_CurrentPlayer->crouchpos;
+
+    // 3D Velocity
+    g_SavedBondState.field_78 = g_CurrentPlayer->field_78;
+    g_SavedBondState.field_7C = g_CurrentPlayer->field_7C;
+    g_SavedBondState.field_80 = g_CurrentPlayer->field_80;
+    g_SavedBondState.speedgo = g_CurrentPlayer->speedgo;
+    g_SavedBondState.bondshotspeed = g_CurrentPlayer->bondshotspeed;
+    g_SavedBondState.speedtheta = g_CurrentPlayer->speedtheta;
+    g_SavedBondState.speedverta = g_CurrentPlayer->speedverta;
+
+    // Bounce Dampeners
+    g_SavedBondState.field_84 = g_CurrentPlayer->field_84;
+    g_SavedBondState.field_88 = g_CurrentPlayer->field_88;
+
+    // Height Tracking
+    g_SavedBondState.field_6C = g_CurrentPlayer->field_6C;
+    g_SavedBondState.field_70 = g_CurrentPlayer->field_70;
+    g_SavedBondState.stanHeight = g_CurrentPlayer->stanHeight;
+
+    // Smoothed / Render Coordinates
+    g_SavedBondState.field_3B8 = g_CurrentPlayer->field_3B8;
+    g_SavedBondState.field_3C4 = g_CurrentPlayer->field_3C4;
+    g_SavedBondState.field_3C8 = g_CurrentPlayer->field_3C8;
+    g_SavedBondState.field_3CC = g_CurrentPlayer->field_3CC;
+
+    // Walk / Head Bob Animation State
+    g_SavedBondState.resetheadpos = g_CurrentPlayer->resetheadpos;
+    g_SavedBondState.resetheadrot = g_CurrentPlayer->resetheadrot;
+    g_SavedBondState.resetheadtick = g_CurrentPlayer->resetheadtick;
+    g_SavedBondState.headanim = g_CurrentPlayer->headanim;
+    g_SavedBondState.headdamp = g_CurrentPlayer->headdamp;
+    g_SavedBondState.headwalkingtime60 = g_CurrentPlayer->headwalkingtime60;
+    g_SavedBondState.headamplitude = g_CurrentPlayer->headamplitude;
+    g_SavedBondState.sideamplitude = g_CurrentPlayer->sideamplitude;
+    g_SavedBondState.headpos = g_CurrentPlayer->headpos;
+    g_SavedBondState.headlook = g_CurrentPlayer->headlook;
+    g_SavedBondState.headup = g_CurrentPlayer->headup;
+    g_SavedBondState.headpossum = g_CurrentPlayer->headpossum;
+    g_SavedBondState.headlooksum = g_CurrentPlayer->headlooksum;
+    g_SavedBondState.headupsum = g_CurrentPlayer->headupsum;
+    g_SavedBondState.headbodyoffset = g_CurrentPlayer->headbodyoffset;
+    g_SavedBondState.standheight = g_CurrentPlayer->standheight;
+    g_SavedBondState.standbodyoffset = g_CurrentPlayer->standbodyoffset;
+    g_SavedBondState.standfrac = g_CurrentPlayer->standfrac;
+    g_SavedBondState.standlook[0] = g_CurrentPlayer->standlook[0];
+    g_SavedBondState.standlook[1] = g_CurrentPlayer->standlook[1];
+    g_SavedBondState.standup[0] = g_CurrentPlayer->standup[0];
+    g_SavedBondState.standup[1] = g_CurrentPlayer->standup[1];
+    g_SavedBondState.standcnt = g_CurrentPlayer->standcnt;
 
     // Health / Armor
     g_SavedBondState.bondhealth = g_CurrentPlayer->bondhealth;
@@ -145,9 +245,11 @@ static void load_bond_state(void) {
     g_CurrentPlayer->previous_model_pos = g_SavedBondState.previous_model_pos;
     g_CurrentPlayer->current_room_pos = g_SavedBondState.current_room_pos;
     g_CurrentPlayer->curRoomIndex = g_SavedBondState.curRoomIndex;
+    g_CurrentPlayer->bondprevpos = g_SavedBondState.bondprevpos;
 
     // Collision
     g_CurrentPlayer->field_488 = g_SavedBondState.field_488;
+    g_CurrentPlayer->previous_collision_info = g_SavedBondState.previous_collision_info;
 
     // Angles
     g_CurrentPlayer->vv_theta = g_SavedBondState.vv_theta;
@@ -165,6 +267,55 @@ static void load_bond_state(void) {
     g_CurrentPlayer->vertical_bounce_adjust = g_SavedBondState.vertical_bounce_adjust;
     g_CurrentPlayer->ducking_height_offset = g_SavedBondState.ducking_height_offset;
     g_CurrentPlayer->crouchpos = g_SavedBondState.crouchpos;
+
+    // 3D Velocity
+    g_CurrentPlayer->field_78 = g_SavedBondState.field_78;
+    g_CurrentPlayer->field_7C = g_SavedBondState.field_7C;
+    g_CurrentPlayer->field_80 = g_SavedBondState.field_80;
+    g_CurrentPlayer->speedgo = g_SavedBondState.speedgo;
+    g_CurrentPlayer->bondshotspeed = g_SavedBondState.bondshotspeed;
+    g_CurrentPlayer->speedtheta = g_SavedBondState.speedtheta;
+    g_CurrentPlayer->speedverta = g_SavedBondState.speedverta;
+
+    // Bounce Dampeners
+    g_CurrentPlayer->field_84 = g_SavedBondState.field_84;
+    g_CurrentPlayer->field_88 = g_SavedBondState.field_88;
+
+    // Height Tracking
+    g_CurrentPlayer->field_6C = g_SavedBondState.field_6C;
+    g_CurrentPlayer->field_70 = g_SavedBondState.field_70;
+    g_CurrentPlayer->stanHeight = g_SavedBondState.stanHeight;
+
+    // Smoothed / Render Coordinates
+    g_CurrentPlayer->field_3B8 = g_SavedBondState.field_3B8;
+    g_CurrentPlayer->field_3C4 = g_SavedBondState.field_3C4;
+    g_CurrentPlayer->field_3C8 = g_SavedBondState.field_3C8;
+    g_CurrentPlayer->field_3CC = g_SavedBondState.field_3CC;
+
+    // Walk / Head Bob Animation State
+    g_CurrentPlayer->resetheadpos = g_SavedBondState.resetheadpos;
+    g_CurrentPlayer->resetheadrot = g_SavedBondState.resetheadrot;
+    g_CurrentPlayer->resetheadtick = g_SavedBondState.resetheadtick;
+    g_CurrentPlayer->headanim = g_SavedBondState.headanim;
+    g_CurrentPlayer->headdamp = g_SavedBondState.headdamp;
+    g_CurrentPlayer->headwalkingtime60 = g_SavedBondState.headwalkingtime60;
+    g_CurrentPlayer->headamplitude = g_SavedBondState.headamplitude;
+    g_CurrentPlayer->sideamplitude = g_SavedBondState.sideamplitude;
+    g_CurrentPlayer->headpos = g_SavedBondState.headpos;
+    g_CurrentPlayer->headlook = g_SavedBondState.headlook;
+    g_CurrentPlayer->headup = g_SavedBondState.headup;
+    g_CurrentPlayer->headpossum = g_SavedBondState.headpossum;
+    g_CurrentPlayer->headlooksum = g_SavedBondState.headlooksum;
+    g_CurrentPlayer->headupsum = g_SavedBondState.headupsum;
+    g_CurrentPlayer->headbodyoffset = g_SavedBondState.headbodyoffset;
+    g_CurrentPlayer->standheight = g_SavedBondState.standheight;
+    g_CurrentPlayer->standbodyoffset = g_SavedBondState.standbodyoffset;
+    g_CurrentPlayer->standfrac = g_SavedBondState.standfrac;
+    g_CurrentPlayer->standlook[0] = g_SavedBondState.standlook[0];
+    g_CurrentPlayer->standlook[1] = g_SavedBondState.standlook[1];
+    g_CurrentPlayer->standup[0] = g_SavedBondState.standup[0];
+    g_CurrentPlayer->standup[1] = g_SavedBondState.standup[1];
+    g_CurrentPlayer->standcnt = g_SavedBondState.standcnt;
 
     // Health / Armor
     g_CurrentPlayer->bondhealth = g_SavedBondState.bondhealth;

@@ -143,6 +143,88 @@ struct player {
   f32 oldarmour;
   f32 apparenthealth;
   f32 apparentarmour;
+
+  // Saved: yes
+  // Previous frame's camera coordinates, used to prevent physics/collision jumps on the frame immediately following a load.
+  coord3d bondprevpos;
+
+  // Saved: yes
+  // 3D velocity/momentum vector:
+  // - field_78: X velocity
+  // - field_7C: Y (vertical) velocity, used to track falls, jumps, and landing impacts.
+  // - field_80: Z velocity
+  // - speedgo: forward/backward movement velocity ramp-up and deceleration timer. Overwriting this stops player post-load drift.
+  // - bondshotspeed: recoil and impact velocity vector from explosions or bullets.
+  // - speedtheta, speedverta: current frame turning speeds.
+  f32 field_78;
+  f32 field_7C;
+  f32 field_80;
+  f32 speedgo;
+  coord3d bondshotspeed;
+  f32 speedtheta;
+  f32 speedverta;
+
+  // Saved: yes
+  // Dampened landing/impact vertical bounce offsets.
+  f32 field_84;
+  f32 field_88;
+
+  // Saved: yes
+  // Height tracking variables:
+  // - field_6C: raw height above the ground before dampening/gravity checks.
+  // - field_70: smoothed floor/ground level tracking height.
+  // - stanHeight: height of the StandTile currently below the player.
+  f32 field_6C;
+  f32 field_70;
+  f32 stanHeight;
+
+  // Saved: yes
+  // Coordinate smoothing exponential accumulator:
+  // - field_3B8: smoothed coordinate accumulator vector.
+  // - field_3C4, field_3C8, field_3CC: derived X, Y, Z camera coordinates calculated from field_3B8. Overwriting these avoids 1-frame coordinate rendering jumps or visual rubberbanding.
+  coord3d field_3B8;
+  f32 field_3C4;
+  f32 field_3C8;
+  f32 field_3CC;
+
+  // Saved: yes
+  // Previous frame's collision context structure.
+  struct collision434 previous_collision_info;
+
+  // Saved: yes
+  // Walk & Head Bob Animation State:
+  // - resetheadpos, resetheadrot, resetheadtick: head position and rotation reset flags.
+  // - headanim: active head bob/walk animation index.
+  // - headdamp: look/head dampening multiplier.
+  // - headwalkingtime60: current time/frame index of the walking animation cycle. Overwriting this resets the walk cycle.
+  // - headamplitude, sideamplitude: vertical and side amplitudes of the head bob cycle.
+  // - headpos, headlook, headup: current frame walk bob offsets/look vectors.
+  // - headpossum, headlooksum, headupsum: accumulated walk bob offsets/look vectors that drive camera position changes.
+  // - headbodyoffset, standbodyoffset: visual body-relative offsets.
+  // - standheight, standfrac: stationary ground offsets and interpolation fraction.
+  // - standlook, standup: array of 2 look/up vectors representing standing state history.
+  // - standcnt: stand state accumulator.
+  s32 resetheadpos;
+  s32 resetheadrot;
+  s32 resetheadtick;
+  s32 headanim;
+  f32 headdamp;
+  s32 headwalkingtime60;
+  f32 headamplitude;
+  f32 sideamplitude;
+  coord3d headpos;
+  coord3d headlook;
+  coord3d headup;
+  coord3d headpossum;
+  coord3d headlooksum;
+  coord3d headupsum;
+  coord3d headbodyoffset;
+  f32 standheight;
+  coord3d standbodyoffset;
+  f32 standfrac;
+  coord3d standlook[2];
+  coord3d standup[2];
+  s32 standcnt;
 }
 
 // Collision data representing player bounds, collision coordinates, and portal tracking.
