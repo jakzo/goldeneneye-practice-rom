@@ -158,6 +158,35 @@ typedef struct {
     s32 hands_weapon_animation_trigger[2];
     s32 hands_field_8B8[2];
     s32 lock_hand_model[2];
+
+    // Cheat status
+    u8 bondinvincible;
+
+    // HUD Display states
+#if defined(VERSION_JP) || defined(VERSION_EU)
+    f32 damageshowtime;
+    f32 healthshowtime;
+#else
+    s32 damageshowtime;
+    s32 healthshowtime;
+#endif
+    s32 healthshowmode;
+
+    // Fading & Breathing
+    f32 bondfadetime60;
+    f32 bondfadetimemax60;
+    f32 bondfadefracold;
+    f32 bondfadefracnew;
+    f32 bondbreathing;
+
+    // Weapon Sway cycle
+    f32 gunposamplitude;
+    f32 gunsync;
+    f32 syncchange;
+    f32 synccount;
+    s32 syncoffset;
+    f32 field_107C;
+    f32 field_1080;
 } SavedBondState;
 
 static SavedBondState g_SavedBondState;
@@ -336,6 +365,30 @@ static void save_bond_state(void) {
             g_SavedBondState.lock_hand_model[i] = g_CurrentPlayer->lock_hand_model[i];
         }
     }
+
+    // Cheat status
+    g_SavedBondState.bondinvincible = g_CurrentPlayer->bondinvincible;
+
+    // HUD Display states
+    g_SavedBondState.damageshowtime = g_CurrentPlayer->damageshowtime;
+    g_SavedBondState.healthshowtime = g_CurrentPlayer->healthshowtime;
+    g_SavedBondState.healthshowmode = g_CurrentPlayer->healthshowmode;
+
+    // Fading & Breathing
+    g_SavedBondState.bondfadetime60 = g_CurrentPlayer->bondfadetime60;
+    g_SavedBondState.bondfadetimemax60 = g_CurrentPlayer->bondfadetimemax60;
+    g_SavedBondState.bondfadefracold = g_CurrentPlayer->bondfadefracold;
+    g_SavedBondState.bondfadefracnew = g_CurrentPlayer->bondfadefracnew;
+    g_SavedBondState.bondbreathing = g_CurrentPlayer->bondbreathing;
+
+    // Weapon Sway cycle
+    g_SavedBondState.gunposamplitude = g_CurrentPlayer->gunposamplitude;
+    g_SavedBondState.gunsync = g_CurrentPlayer->gunsync;
+    g_SavedBondState.syncchange = g_CurrentPlayer->syncchange;
+    g_SavedBondState.synccount = g_CurrentPlayer->synccount;
+    g_SavedBondState.syncoffset = g_CurrentPlayer->syncoffset;
+    g_SavedBondState.field_107C = g_CurrentPlayer->field_107C;
+    g_SavedBondState.field_1080 = g_CurrentPlayer->field_1080;
 }
 
 static void load_bond_state(void) {
@@ -560,6 +613,30 @@ static void load_bond_state(void) {
             g_CurrentPlayer->lock_hand_model[hand] = g_SavedBondState.lock_hand_model[hand];
         }
     }
+
+    // Cheat status
+    g_CurrentPlayer->bondinvincible = g_SavedBondState.bondinvincible;
+
+    // HUD Display states
+    g_CurrentPlayer->damageshowtime = g_SavedBondState.damageshowtime;
+    g_CurrentPlayer->healthshowtime = g_SavedBondState.healthshowtime;
+    g_CurrentPlayer->healthshowmode = g_SavedBondState.healthshowmode;
+
+    // Fading & Breathing
+    g_CurrentPlayer->bondfadetime60 = g_SavedBondState.bondfadetime60;
+    g_CurrentPlayer->bondfadetimemax60 = g_SavedBondState.bondfadetimemax60;
+    g_CurrentPlayer->bondfadefracold = g_SavedBondState.bondfadefracold;
+    g_CurrentPlayer->bondfadefracnew = g_SavedBondState.bondfadefracnew;
+    g_CurrentPlayer->bondbreathing = g_SavedBondState.bondbreathing;
+
+    // Weapon Sway cycle
+    g_CurrentPlayer->gunposamplitude = g_SavedBondState.gunposamplitude;
+    g_CurrentPlayer->gunsync = g_SavedBondState.gunsync;
+    g_CurrentPlayer->syncchange = g_SavedBondState.syncchange;
+    g_CurrentPlayer->synccount = g_SavedBondState.synccount;
+    g_CurrentPlayer->syncoffset = g_SavedBondState.syncoffset;
+    g_CurrentPlayer->field_107C = g_SavedBondState.field_107C;
+    g_CurrentPlayer->field_1080 = g_SavedBondState.field_1080;
 }
 
 void save_game_state(void) {

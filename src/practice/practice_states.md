@@ -12,6 +12,14 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 
 Currently we want to be able to save and load details about the player in a single player game. Things like position, orientation, velocity, ammo, inventory, health, etc.
 
+### Next Goals
+
+After the current goal we will need to handle:
+
+- Props (PropRecord type-by-type)
+- NPCs (position, animation, AI, etc.)
+- Global state (mission timer, objectives, etc.)
+
 ## Key Learnings
 
 Add any general advice helpful for future agents working on this feature here. Be sure to read and understand these before starting work on handling more state in the system.
@@ -42,7 +50,9 @@ struct player *g_CurrentPlayer;
 struct player {
   // Saved: yes
   // Flag indicating player control state / viewport focus.
-  // Values: 1 (bypasses collision and portal calculations, returning raw position coordinates directly, e.g. during cutscenes or frozen camera tick), 0 (normal gameplay mode where logical position is calculated from collision structures).
+  // Values:
+  // - 0: Normal gameplay mode (processes portal geometry, wall/floor collisions, respects physical speed).
+  // - 1: Cutscene/Bypass mode (bypasses collision and portal calculations, camera snaps/moves directly to the coordinates in pos. Used during intro sweeps, death cameras, or scripted control sequences).
   s32 unknown;
 
   // Saved: yes
@@ -94,7 +104,9 @@ struct player {
   struct collision434 field_488;
 
   // Saved: yes
-  // Look angles (horizontal and vertical orientation).
+  // Look angles (horizontal and vertical orientation in degrees).
+  // - vv_theta: Horizontal look rotation. Bounded between 0.0f and 360.0f (degrees). Used to calculate radial direction.
+  // - vv_verta: Vertical look rotation (pitch). Bounded between -80.0f (looking straight down) and 80.0f (looking straight up).
   f32 vv_theta;
   f32 vv_verta;
 
@@ -111,11 +123,11 @@ struct player {
 
   // Saved: yes
   // Movement speeds and physics multipliers:
-  // - speedsideways: velocity moving left/right relative to view.
-  // - speedstrafe: Current strafe velocity (dynamically updated each frame based on horizontal joystick deflection/input).
-  // - speedforwards: velocity moving forward/backward relative to view.
-  // - speedmaxtime60: duration (ticks) player has been continuously running.
-  // - speedboost: running speed factor (starts at 1.0f, accelerates to 1.35f after 3 seconds of continuous running).
+  // - speedsideways: Current velocity moving sideways (left/right) relative to camera heading. Bounded typically by joystick limits.
+  // - speedstrafe: Horizontal joystick deflection component. Range: -70 to +70 (or equivalent scaled joystick inputs).
+  // - speedforwards: Current velocity moving forwards/backwards relative to camera heading. Bounded by joystick and current speed limits.
+  // - speedmaxtime60: Continuous forward-running frame/tick counter. Increments by g_ClockTimer (60Hz US, 50Hz JP/EU) when running forward at full speed. Bounded between 0 and THREE_SECOND_TICKS (180 US, 150 JP/EU). Resets to 0 if forward movement ceases.
+  // - speedboost: Running speed acceleration factor. Bounded between 1.0f (SPEED_REGULAR_MAX) and 1.25f (SPEED_RUN_MAX). When running forward at full speed continuously for three seconds (speedmaxtime60 >= THREE_SECOND_TICKS), it increments by 0.01f (SPEED_TICK_ADJUST) per frame up to 1.25f. Decays back to 1.0f when full forward speed is not maintained.
   f32 speedsideways;
   f32 speedstrafe;
   f32 speedforwards;
@@ -124,18 +136,22 @@ struct player {
 
   // Saved: yes
   // Crouch/duck positioning and height offsets:
-  // - vertical_bounce_adjust: visual bounce vertical adjustment applied when falling or descending ramps/stairs.
-  // - ducking_height_offset: vertical visual/logical eye offset (0.0f to -100.0f) representing current crouch level.
-  // - crouchpos: crouch state enum/flag (0 = CROUCH_STAND, 1 = CROUCH_KNEEL, 2 = CROUCH_SQUAT).
+  // - vertical_bounce_adjust: Visual camera bounce vertical adjustment applied on landing impact or when descending stairs/ramps.
+  // - ducking_height_offset: Vertical visual/logical camera height offset. Bounded between 0.0f (standing) and -100.0f (fully crouched / FULL_CROUCH_OFFSET). Interpolates smoothly towards the target height matching crouchpos.
+  // - crouchpos: Target crouch state enum/flag.
+  //   Values:
+  //   - 0: CROUCH_SQUAT (fully crouched / target height offset -100.0f)
+  //   - 1: CROUCH_HALF (kneeling / target height offset -60.0f)
+  //   - 2: CROUCH_STAND (standing / target height offset 0.0f)
   f32 vertical_bounce_adjust;
   f32 ducking_height_offset;
   s32 crouchpos;
 
   // Saved: yes
   // Health and armor values:
-  // - bondhealth, bondarmour: actual logical health and armor (0.0f to 1.0f).
-  // - oldhealth, oldarmour: health and armor values in the previous frame.
-  // - apparenthealth, apparentarmour: the visual values displayed on the HUD bars, which smoothly slide and interpolate towards the actual values when taking damage or gaining armor to provide visual polish.
+  // - bondhealth, bondarmour: Actual logical player health and armor. Bounded between 0.0f (no health/armor) and 1.0f (full health/armor).
+  // - oldhealth, oldarmour: The health and armor values from the previous frame. Bounded between 0.0f and 1.0f.
+  // - apparenthealth, apparentarmour: Visual health/armor level displayed on the HUD bars. Bounded between 0.0f and 1.0f. Interpolates smoothly towards bondhealth and bondarmour over time (sliding bar effect).
   f32 bondhealth;
   f32 bondarmour;
   f32 oldhealth;
@@ -148,13 +164,13 @@ struct player {
   coord3d bondprevpos;
 
   // Saved: yes
-  // 3D velocity/momentum vector:
-  // - field_78: X velocity
-  // - field_7C: Y (vertical) velocity, used to track falls, jumps, and landing impacts.
-  // - field_80: Z velocity
-  // - speedgo: forward/backward movement velocity ramp-up and deceleration timer. Overwriting this stops player post-load drift.
-  // - bondshotspeed: recoil and impact velocity vector from explosions or bullets.
-  // - speedtheta, speedverta: current frame turning speeds.
+  // X, Y, Z velocity/momentum vector (units: coordinate units per frame):
+  // - field_78: Sideways velocity (X axis). Positive values move right, negative left.
+  // - field_7C: Vertical velocity (Y axis). Bounded by terminal velocity. Negative when falling, positive when jumping or pushed up.
+  // - field_80: Forward/backward velocity (Z axis). Positive moves forward, negative backward.
+  // - speedgo: Forward/backward acceleration factor. Bounded between 0.0f (stopped) and 1.0f (full speed).
+  // - bondshotspeed: Recoil velocity vector applied to the player upon taking gunshots or explosive blast impact.
+  // - speedtheta, speedverta: Rotational look speeds (yaw/pitch rates) per frame.
   f32 field_78;
   f32 field_7C;
   f32 field_80;
@@ -238,12 +254,154 @@ struct player {
 
   // Saved: yes
   // Weapons & Hands Rendering:
-  // - hand_item: weapon/item IDs currently loaded in the left and right hands.
-  // - hands: structure for each hand tracking animation status, next weapons, and weapon_ammo_in_magazine. Rebuilt address-safely; triggers model reloading via currentPlayerEquipWeaponWrapper if hand weapons change on load.
+  // - weapon/item IDs currently loaded in the left and right hands.
   ITEM_IDS hand_item[2];
+  // Saved: yes
+  // structure for each hand tracking animation status, next weapons, and weapon_ammo_in_magazine. Rebuilt address-safely; triggers model reloading via currentPlayerEquipWeaponWrapper if hand weapons change on load.
   struct hand hands[2];
 
-  // TODO: Investigate, document, and determine save/load strategy for the following remaining fields:
+  // Saved: yes
+  // Player status & cheat settings:
+  // Player invincibility status flag. Bounded to 0 (vulnerable) or 1 (invincible, active cheat). When 1, all incoming gunshots and explosive damage to player health are bypassed.
+  u8 bondinvincible;
+
+  // Saved: yes
+  // HUD Display overlay states:
+  // - damageshowtime: Remaining display duration (in frames/ticks) for the fullscreen damage flash or HUD warnings. Bounded from -1 (hidden/inactive) up to total duration (e.g. 120 frames).
+  // - healthshowtime: Remaining display duration (in frames/ticks) for the health/armor HUD overlay bars. Bounded from -1 (hidden/inactive) up to total display duration. Counts up or down and resets to -1 when animation finishes.
+#if defined(VERSION_JP) || defined(VERSION_EU)
+  f32 damageshowtime;
+  f32 healthshowtime;
+#else
+  s32 damageshowtime;
+  s32 healthshowtime;
+#endif
+  // Saved: yes
+  // Unused padding/unreferenced field (0x00fc).
+  s32 healthshowmode;
+
+  // Saved: yes
+  // Default screen fade transition timers/fractions (used when transitioning between rooms, starting missions, etc.):
+  // Current frame timer for the default screen fade. Bounded from 0.0f to bondfadetimemax60. Set to -1.0f when no default screen fade is active.
+  f32 bondfadetime60;
+  // Saved: yes
+  // Total duration (in frames) of the default screen fade transition.
+  f32 bondfadetimemax60;
+  // Saved: yes
+  // Starting default screen opacity fraction. Bounded between 0.0f (transparent) and 1.0f (fully opaque).
+  f32 bondfadefracold;
+  // Saved: yes
+  // Target/ending default screen opacity fraction. Bounded between 0.0f and 1.0f.
+  f32 bondfadefracnew;
+  // Saved: yes
+  // Player breathing cycle intensity. Bounded between 0.0f and 1.0f. Drives the frequency/amplitude of camera height bobbing when standing idle.
+  f32 bondbreathing;
+
+  // Saved: yes
+  // Weapon Sway cycle details:
+  // vertical and horizontal weapon sway amplitudes.
+  f32 gunposamplitude;
+  f32 gunxamplitude;
+  // Saved: yes
+  // weapon sway timing and synchronization state variables.
+  f32 gunsync;
+  f32 syncchange;
+  f32 synccount;
+  s32 syncoffset;
+  // Saved: yes
+  // smoothed breathing and sway accumulators.
+  f32 field_107C;
+  f32 field_1080;
+
+  // Saved: yes
+  // RGB channels of screen color tint (0-255). Damage flashes are red (255, 0, 0) and fade transitions are black (0, 0, 0).
+  s32 colourscreenred;
+  s32 colourscreengreen;
+  s32 colourscreenblue;
+  // Saved: yes
+  // Active screen color overlay transparency fraction. Bounded between 0.0f (no overlay) and 1.0f (opaque).
+  f32 colourscreenfrac;
+  // Saved: yes
+  // Color tint fade timers (in frames). Bounded from 0.0f to colourfadetimemax60.
+  f32 colourfadetime60;
+  f32 colourfadetimemax60;
+  // Saved: yes
+  // Starting and target RGB color/fraction boundaries for fade interpolation.
+  s32 colourfaderedold;
+  s32 colourfaderednew;
+  s32 colourfadegreenold;
+  s32 colourfadegreennew;
+  s32 colourfadeblueold;
+  s32 colourfadebluenew;
+  f32 colourfadefracold;
+  f32 colourfadefracnew;
+
+  // Saved: yes
+  // crosshair_angle: Final calculated 2D viewport coordinates of the crosshair (X, Y). Recomputed on aim input.
+  coord2d crosshair_angle;
+  // Saved: yes
+  // crosshair_x_pos, crosshair_y_pos: Raw horizontal and vertical offsets of the crosshair. Bounded by manual aim movement limits (-1.0f to 1.0f).
+  f32 crosshair_x_pos;
+  f32 crosshair_y_pos;
+  // Saved: yes
+  // guncrossdamp, gunaimdamp: Dampening interpolation factors for crosshair and gun model aiming drift (0.0f to 1.0f).
+  f32 guncrossdamp;
+  f32 gunaimdamp;
+  // Saved: yes
+  // field_FFC: 2D screen coordinate projection of the weapon/bullet direction (X, Y). Transformed into 3D coords for shot trajectory projection.
+  coord2d field_FFC;
+  // Saved: yes
+  // gun_azimuth_angle, gun_azimuth_turning: Horizontal gun yaw angle and turning velocity when aiming (in radians).
+  f32 gun_azimuth_angle;
+  f32 gun_azimuth_turning;
+  // Saved: yes
+  // field_1010: 3D look/aim angle vector (pitch, yaw, roll). Y is initialized to -M_PI.
+  coord3d field_1010;
+  // Saved: yes
+  // field_101C: Float 3D rotation matrix (Mtxf) tracking the gun's visual orientation, generated from field_1010.
+  Mtxf field_101C;
+  // Saved: yes
+  // last_z_trigger_timer: Ticks elapsed since Z trigger was pressed (used to track weapon firing cooldown cycles).
+  s32 last_z_trigger_timer;
+  // Saved: yes
+  // copiedgoldeneye: Boolean flag indicating if the GoldenEye Key has been analyzed/copied (Control Room objective status). Bounded to FALSE (0) or TRUE (1).
+  s32 copiedgoldeneye;
+  // Saved: yes
+  // gunammooff: Bitfield of reasons for hiding the HUD ammo display (shares GUNSIGHTREASON_ constants). 0 if ammo is visible.
+  s32 gunammooff;
+  // Saved: yes
+  // field_1068: Padding/unreferenced field in C source (likely padding or used in assembly).
+  s32 field_1068;
+  // Saved: yes
+  // Current FOV values of the camera. Bounded between 60.0f (default) and 7.0f (maximum Sniper zoom).
+  f32 sniper_zoom;
+  f32 camera_zoom;
+
+  // Saved: yes
+  // Bitfield of reasons for hiding the crosshair sight (0 if sight is visible).
+  //   - 0x01 (GUNSIGHTREASON_1): Watch menu active / paused.
+  //   - 0x02 (GUNSIGHTREASON_NOTAIMING): Sight hidden because manual aim button is not held.
+  //   - 0x04 (GUNSIGHTREASON_NOCONTROL): Sight hidden because the player lacks control.
+  //   - 0x10 (GUNSIGHTREASON_DAMAGE): Sight hidden due to taking damage.
+  s32 gunsightmode;
+  // Saved: yes
+  // Padding/unreferenced field in C source (likely padding or used in assembly).
+  s32 field_112C;
+  // Saved: yes
+  // Transition timer and duration in frames/ticks for watch/sniper zoom transitions. Bounded between 0.0f and zoomintimemax (usually 30.0f or 45.0f).
+  f32 zoomintime;
+  f32 zoomintimemax;
+  // Saved: yes
+  // Current, starting, and ending target FOV angles (in degrees) for watch/sniper transitions.
+  f32 zoominfovy;
+  f32 zoominfovyold;
+  f32 zoominfovynew;
+  // Saved: yes
+  // Render perspective parameters. Default FOV is 60.0f, default aspect is 1.333f (4:3) or 1.777f (16:9).
+  f32 fovy;
+  f32 aspect;
+
+  // TODO: Investigate, document, determine save/load strategy and then provide plan on how the user should manually test for the following remaining fields:
 
   // Uncategorized / Padding / System fields
   s32 field_5C;
@@ -257,9 +415,6 @@ struct player {
   s32 field_AC;
   struct rect4f collision_bounds;
   s32 field_D0;
-  s32 damageshowtime;
-  s32 healthshowtime;
-  s32 healthshowmode;
   s32 field_100;
   s32 field_104;
   s32 field_108;
@@ -282,11 +437,6 @@ struct player {
   s32 autoxaimtime60;
 
   // Fade & Breathing
-  f32 bondfadetime60;
-  f32 bondfadetimemax60;
-  f32 bondfadefracold;
-  f32 bondfadefracnew;
-  f32 bondbreathing;
   s32 field_1A0;
   s32 field_1A4;
   s32 field_1A8;
@@ -342,22 +492,6 @@ struct player {
   u16 buttons_pressed;
   u16 prev_buttons_pressed;
 
-  // Fading Colors
-  s32 colourscreenred;
-  s32 colourscreengreen;
-  s32 colourscreenblue;
-  f32 colourscreenfrac;
-  f32 colourfadetime60;
-  f32 colourfadetimemax60;
-  s32 colourfaderedold;
-  s32 colourfaderednew;
-  s32 colourfadegreenold;
-  s32 colourfadegreennew;
-  s32 colourfadeblueold;
-  s32 colourfadebluenew;
-  f32 colourfadefracold;
-  f32 colourfadefracnew;
-
   // Death State
   f32 thetadie;
   f32 vertadie;
@@ -398,8 +532,6 @@ struct player {
   ModelFileHeader *ptr_hand_weapon_buffer[2];
   ModelFileHeader copy_of_body_obj_header[2];
   struct texpool item_related[2];
-  f32 gunposamplitude;
-  f32 gunxamplitude;
   s32 field_FC8;
   s32 field_FCC;
   s32 field_FD0;
@@ -408,28 +540,6 @@ struct player {
   struct rgba_u8 tileColor;
   s32 resetshadecol;
   s32 aimtype;
-  coord2d crosshair_angle;
-  f32 crosshair_x_pos;
-  f32 crosshair_y_pos;
-  f32 guncrossdamp;
-  coord2d field_FFC;
-  f32 gun_azimuth_angle;
-  f32 gun_azimuth_turning;
-  f32 gunaimdamp;
-  coord3d field_1010;
-  Mtxf field_101C;
-  s32 last_z_trigger_timer;
-  s32 copiedgoldeneye;
-  s32 gunammooff;
-  s32 field_1068;
-  f32 gunsync;
-  f32 syncchange;
-  f32 synccount;
-  s32 syncoffset;
-  f32 field_107C;
-  f32 field_1080;
-  f32 sniper_zoom;
-  f32 camera_zoom;
 
   // Rendering Matrices & Camera projection variables
   f32 c_screenwidth;
@@ -466,15 +576,6 @@ struct player {
   f32 screenyminf;
   f32 screenxmaxf;
   f32 screenymaxf;
-  s32 gunsightmode;
-  s32 field_112C;
-  f32 zoomintime;
-  f32 zoomintimemax;
-  f32 zoominfovy;
-  f32 zoominfovyold;
-  f32 zoominfovynew;
-  f32 fovy;
-  f32 aspect;
 
   // Inventory & Ammo Arrays
   u8 *bloodImgCur;
@@ -501,7 +602,6 @@ struct player {
   u16 cheat_display_text_related[20];
   u8 something_with_cheat_text;
   u8 can_display_cheat_text;
-  u8 bondinvincible;
   u8 field_12B7;
 
   // Armor & Health Damage HUD overlay caches
