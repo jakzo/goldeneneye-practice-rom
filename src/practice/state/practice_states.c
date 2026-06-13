@@ -38,6 +38,7 @@ void save_game_state(void) {
 
   save_bond_state(&g_SaveState.bond_state);
   save_global_state(&g_SaveState.global_state);
+  save_props_state(&g_SaveState.props_state);
 
   g_HasSavedState = TRUE;
 
@@ -77,6 +78,7 @@ void load_game_state(void) {
 
   load_bond_state(&g_SaveState.bond_state);
   load_global_state(&g_SaveState.global_state);
+  load_props_state(&g_SaveState.props_state);
 
   sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State loaded");

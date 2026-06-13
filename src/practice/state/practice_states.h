@@ -3,6 +3,7 @@
 
 #include "practice_states_bond.h"
 #include "practice_states_globals.h"
+#include "practice_states_props.h"
 #include <ultra64.h>
 
 #define SAVE_STATE_MAGIC 0x47455353 // "GESS"
@@ -20,7 +21,7 @@
  * - Modifying the size or layout of structs in the middle of SaveState (which
  * alters offsets of all subsequent fields).
  */
-#define SAVE_STATE_VERSION 1
+#define SAVE_STATE_VERSION 2
 #define SAVE_STATE_SRAM_OFFSET 0x200
 
 typedef struct {
@@ -30,6 +31,7 @@ typedef struct {
   s32 level_id; // 4 bytes level ID
   SavedGlobals global_state;
   SavedBondState bond_state;
+  SavedPropsState props_state;
 } SaveState;
 
 extern bool g_HasSavedState;

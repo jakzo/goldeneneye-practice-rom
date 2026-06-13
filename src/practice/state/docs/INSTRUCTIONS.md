@@ -10,22 +10,23 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 
 ## Current Goal
 
-Currently we want to be able to save and load details about the player in a single player game. Things like position, orientation, velocity, ammo, inventory, health, etc.
+Currently we want to be able to save and load the state of each type of prop.
 
 ### Next Goals
 
 After the current goal we will need to handle:
 
-- Props (PropRecord type-by-type)
+- [done] Bond
+- [current] Props (PropRecord type-by-type)
 - NPCs (position, animation, AI, etc.)
 - Global state (mission timer, objectives, etc.)
 
 ## Prompt
 
-Read through this entire document and implement some more fields into the save/load system. Make sure to:
+Read through this entire document and implement another prop type into the save/load system. Make sure to:
 
-- Choose a cohesive set of fields to implement at once
-- Prioritize fields that are simple (ie. not pointers or things that need to be kept in sync with other things)
+- Choose a new prop to implement
+- Prioritize props that are simple (ie. not pointers or things that need to be kept in sync with other things)
 - Document their purpose, possible values, etc. in the docs files the same way as the existing fields using the same format, and move them out of the TODO section
 - Tell me what to do in the game to test that it works and doesn't crash/hang
 - No need to update the changelog or walkthrough
@@ -45,6 +46,6 @@ Add any general advice helpful for future agents working on this feature here. B
 
 ## Struct Analysis
 
-Keep all the properties of the structs and global variables we save and load here. Document them and their properties, along with whether they affect gameplay, their status in the save/load code and any other important information. Use this as a guide when reading source code to understand what each property does.
+Keep all the properties of the structs and global variables we save and load in files in this directory. Document them and their properties, along with whether they affect gameplay, their status in the save/load code and any other important information. Use this as a guide when reading source code to understand what each property does.
 
 If you are missing any information about a struct or variable, mark with a TODO comment what should still be investigated and documented.

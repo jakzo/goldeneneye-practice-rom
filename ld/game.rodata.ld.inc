@@ -90,6 +90,7 @@
       build/OUTCODE/src/practice/state/practice_states.o (.rodata);
       build/OUTCODE/src/practice/state/practice_states_bond.o (.rodata);
       build/OUTCODE/src/practice/state/practice_states_globals.o (.rodata);
+      build/OUTCODE/src/practice/state/practice_states_props.o (.rodata);
       build/OUTCODE/src/practice/state/practice_states_utils.o (.rodata);
       build/OUTCODE/src/practice/practice_config.o (.rodata);
       build/OUTCODE/src/practice/practice_hotkeys.o (.rodata);
