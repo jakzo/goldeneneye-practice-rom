@@ -1,5 +1,7 @@
 ### Unreleased
 
+# 0.2.0
+
 - Added mission timer display on screen during level
 - Added hundredths to the mission end screen timer
 - Rewriting state saving system to be more thorough
