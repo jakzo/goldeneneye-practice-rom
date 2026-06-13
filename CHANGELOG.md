@@ -1,5 +1,7 @@
 ### Unreleased
 
+- Fixed bug with sound being disabled for the save on first boot
+
 # 0.2.0
 
 - Added mission timer display on screen during level

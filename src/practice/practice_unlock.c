@@ -25,12 +25,12 @@ void practice_unlock_default_profile(void) {
   if (!save) {
     fileBuildWriteNewSave(FOLDER1);
     save = fileGetSaveForFoldernum(FOLDER1);
-  }
-  if (!save)
-    return;
+    if (!save)
+      return;
 
-  if (save->options == 0) {
     save->options = DEFAULT_OPTIONS;
+    save->music_vol = 0xFF;
+    save->sfx_vol = 0xFF;
   }
 
   isUnlocked = save->unlocked_cheats_1 == 0xFF &&
