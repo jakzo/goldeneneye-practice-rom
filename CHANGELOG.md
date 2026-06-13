@@ -3,6 +3,7 @@
 - Added mission timer display on screen during level
 - Added hundredths to the mission end screen timer
 - Rewriting state saving system to be more thorough
+- Persistent save states (transitioned save data storage from EEPROM to SRAM)
 
 # 0.1.0
 

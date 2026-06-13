@@ -3,15 +3,28 @@
 #include "practice_states_globals.h"
 #include "practice_ui.h"
 #include "player.h"
+#include "practice_sram.h"
 #include <snd.h>
 #include <music.h>
 #include <bondconstants.h>
 #include <ultra64.h>
 
-static SaveState g_SaveState;
+static union {
+  SaveState state;
+  // Force g_SaveStateUnion (and therefore state) to be 8-byte aligned
+  u64 align_dummy;
+} g_SaveStateUnion;
+#define g_SaveState g_SaveStateUnion.state
+
 extern s32 g_CurrentStageToLoad;
 
 bool g_HasSavedState = FALSE;
+
+void init_save_state_system(void) {
+  sram_read(SAVE_STATE_SRAM_OFFSET, &g_SaveState, sizeof(SaveState));
+
+  g_HasSavedState = g_SaveState.magic == SAVE_STATE_MAGIC;
+}
 
 void save_game_state(void) {
   if (g_CurrentPlayer == NULL) {
@@ -27,6 +40,9 @@ void save_game_state(void) {
   save_global_state(&g_SaveState.global_state);
 
   g_HasSavedState = TRUE;
+
+  sram_write(SAVE_STATE_SRAM_OFFSET, &g_SaveState, sizeof(SaveState));
+
   sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State saved");
 }

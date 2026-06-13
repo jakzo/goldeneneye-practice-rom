@@ -41,6 +41,7 @@
 #include "PR/R4300.h"
 #include "practice/practice_config.h"
 #include "practice/practice_unlock.h"
+#include "practice/state/practice_states.h"
 
 /**
  * @file boss.c
@@ -167,6 +168,11 @@ void bossInitMainthreadData(void)
     rspInit();
     dynInit();
     joyInit();
+#ifdef PRACTICE_ROM
+    init_save_state_system();
+    fileValidateSaves();
+    practice_unlock_default_profile();
+#endif
     osCreateMesgQueue(&bossmq, &bossmsg, 1);
 
     for (i = 0; i != MAXCONTROLLERS; i++)
@@ -318,8 +324,6 @@ void bossMainloop(void)
     reset_mem_bank_5();
 
 #ifdef PRACTICE_ROM
-    practice_unlock_default_profile();
-
     if (practice.boot_level != LEVELID_NONE) {
         g_StageNum = practice.boot_level;
     }

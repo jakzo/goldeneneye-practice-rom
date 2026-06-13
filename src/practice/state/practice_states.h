@@ -21,6 +21,7 @@
  * alters offsets of all subsequent fields).
  */
 #define SAVE_STATE_VERSION 1
+#define SAVE_STATE_SRAM_OFFSET 0x200
 
 typedef struct {
   u32 magic;    // 4 bytes magic value
@@ -33,6 +34,7 @@ typedef struct {
 
 extern bool g_HasSavedState;
 
+void init_save_state_system(void);
 void save_game_state(void);
 void load_game_state(void);
 

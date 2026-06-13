@@ -11,7 +11,11 @@
 .ascii "GOLDENEYE           " # ROM name: 20 bytes
 .word  0x00000000 # unknown
 .word  0x0000004E # cartridge
+.ifdef PRACTICE_ROM
+.ascii "ZL"       # cartridge ID (Zelda OOT uses SRAM save type)
+.else
 .ascii "GE"       # cartridge ID
+.endif
 .ifdef LANG_US
 .ascii "E"        # country
 .endif

@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include "joy.h"
 #include <PR/os.h>
+#include "practice_sram.h"
 
 #define JOY_CLAMP_MIN          0
 #define JOY_CLAMP_MAX        120
@@ -996,6 +997,12 @@ void joyEnablePoll(void)
     osRecvMesg(&g_ContEnablePollReceiveMessageQueue, &msg, OS_MESG_BLOCK);
 }
 
+#ifdef PRACTICE_ROM
+s32 joyGamePakProbe(void)
+{
+    return 1;
+}
+#else
 s32 joyGamePakProbe(void)
 {
     s32 type;
@@ -1006,7 +1013,14 @@ s32 joyGamePakProbe(void)
 
     return type;
 }
+#endif
 
+#ifdef PRACTICE_ROM
+s32 joyGamePakRead(u8 address, u8 *buffer)
+{
+    return sram_read(address * 8, buffer, 8);
+}
+#else
 s32 joyGamePakRead(u8 address, u8 *buffer)
 {
     s32 ret;
@@ -1017,7 +1031,14 @@ s32 joyGamePakRead(u8 address, u8 *buffer)
 
     return ret;
 }
+#endif
 
+#ifdef PRACTICE_ROM
+s32 joyGamePakWrite(u8 address, u8 *buffer)
+{
+    return sram_write(address * 8, buffer, 8);
+}
+#else
 s32 joyGamePakWrite(u8 address, u8 *buffer)
 {
     s32 ret;
@@ -1028,7 +1049,14 @@ s32 joyGamePakWrite(u8 address, u8 *buffer)
 
     return ret;
 }
+#endif
 
+#ifdef PRACTICE_ROM
+s32 joyGamePakLongRead(u8 address, u8 *buffer, s32 nbytes)
+{
+    return sram_read(address * 8, buffer, nbytes);
+}
+#else
 s32 joyGamePakLongRead(u8 address, u8 *buffer, s32 nbytes)
 {
     s32 ret;
@@ -1039,7 +1067,14 @@ s32 joyGamePakLongRead(u8 address, u8 *buffer, s32 nbytes)
 
     return ret;
 }
+#endif
 
+#ifdef PRACTICE_ROM
+s32 joyGamePakLongWrite(u8 address, u8 *buffer, s32 nbytes)
+{
+    return sram_write(address * 8, buffer, nbytes);
+}
+#else
 s32 joyGamePakLongWrite(u8 address, u8 *buffer, s32 nbytes)
 {
     s32 ret;
@@ -1050,6 +1085,7 @@ s32 joyGamePakLongWrite(u8 address, u8 *buffer, s32 nbytes)
 
     return ret;
 }
+#endif
 
 void joyRumblePakStart(s32 controller, f32 duration)
 {

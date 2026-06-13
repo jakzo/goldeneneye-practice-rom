@@ -97,6 +97,7 @@
       build/OUTCODE/src/practice/practice_ui.o (.bss);
       build/OUTCODE/src/practice/practice_unlock.o (.bss);
       build/OUTCODE/src/practice/practice_grenade_cam.o (.bss);
+      build/OUTCODE/src/practice/practice_sram.o (.bss);
       build/OUTCODE/src/game/unk_092890.o (.bss);
       build/OUTCODE/src/game/unk_092E50.o (.bss);
       build/OUTCODE/src/game/player.o (.bss);
