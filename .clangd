@@ -23,3 +23,4 @@ CompileFlags:
     - "-DBYTEMATCH"
     - "-D_LANGUAGE_C"
     - "-DTARGET_N64"
+    - "-fms-extensions"

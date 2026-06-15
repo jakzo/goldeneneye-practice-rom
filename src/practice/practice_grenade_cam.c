@@ -11,6 +11,7 @@
 #include "lvl.h"
 #include "player.h"
 #include "player_2.h"
+#include "practice_config.h"
 #include "stan.h"
 #include <fr.h>
 #include <math.h>
@@ -72,7 +73,7 @@ void practice_grenade_cam_tick(void) {
   coord3d g_pos;
   f32 dx, dz, dist_sqr, dist, min_y, max_y;
 
-  if (g_CurrentPlayer == NULL || player_prop == NULL)
+  if (!practice.grenade_cam || g_CurrentPlayer == NULL || player_prop == NULL)
     return;
 
   // 1. Tick existing slots

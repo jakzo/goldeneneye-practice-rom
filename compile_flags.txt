@@ -22,4 +22,4 @@ src/bondtypes.h
 -D_LANGUAGE_C
 -DTARGET_N64
 -DPRACTICE_ROM
-
+-fms-extensions

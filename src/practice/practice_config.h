@@ -11,6 +11,7 @@ struct PracticeConfig {
   s32 show_debug_logs;
   s32 show_hundredths_on_timer;
   s32 show_mission_timer;
+  s32 grenade_cam;
 };
 
 extern struct PracticeConfig practice;
