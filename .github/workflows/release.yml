@@ -23,9 +23,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install binutils-mips-linux-gnu make xdelta3
+          sudo apt install binutils-mips-linux-gnu make
           wget -q https://github.com/n64decomp/qemu-irix/releases/download/v2.11-deb/qemu-irix-2.11.0-2169-g32ab296eef_amd64.deb
           sudo dpkg -i qemu-irix-2.11.0-2169-g32ab296eef_amd64.deb
+
+      - name: Build and install Flips (BPS tool)
+        run: |
+          git clone https://github.com/Alcaro/Flips.git
+          cd Flips
+          ./make.sh --profile=no
+          sudo cp flips /usr/local/bin/flips
 
       - name: Download US base ROM
         run: |
@@ -47,7 +54,7 @@ jobs:
             echo "name=build ${{ github.run_number }}" >> $GITHUB_OUTPUT
             echo "prerelease=true" >> $GITHUB_OUTPUT
             echo "make_latest=false" >> $GITHUB_OUTPUT
-            echo "filename=goldeneye_practice_rom_build_${{ github.run_number }}.xdelta" >> $GITHUB_OUTPUT
+            echo "filename=goldeneye_practice_rom_build_${{ github.run_number }}.bps" >> $GITHUB_OUTPUT
           else
             # Extract the latest changelog entry (from first # header to next # or EOF)
             FIRST_ENTRY=$(awk '/^# /{if(found) exit; found=1} found{print}' CHANGELOG.md)
@@ -59,7 +66,7 @@ jobs:
             echo "name=v$VERSION" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
             echo "make_latest=true" >> $GITHUB_OUTPUT
-            echo "filename=goldeneye_practice_rom_v$VERSION.xdelta" >> $GITHUB_OUTPUT
+            echo "filename=goldeneye_practice_rom_v$VERSION.bps" >> $GITHUB_OUTPUT
             # Write multi-line body via heredoc syntax
             echo "body<<EOF" >> $GITHUB_OUTPUT
             echo "$BODY" >> $GITHUB_OUTPUT
@@ -68,14 +75,14 @@ jobs:
             echo "EOF" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate xdelta patch
+      - name: Generate BPS patch
         run: |
-          xdelta3 -s baserom.u.z64 build/u/ge007.u.z64 "${{ steps.tag.outputs.filename }}"
+          flips --create baserom.u.z64 build/u/ge007.u.z64 "${{ steps.tag.outputs.filename }}"
           ls -lh "${{ steps.tag.outputs.filename }}"
 
       - name: Verify patch produces built ROM
         run: |
-          xdelta3 -d -s baserom.u.z64 "${{ steps.tag.outputs.filename }}" patched.u.z64
+          flips --apply "${{ steps.tag.outputs.filename }}" baserom.u.z64 patched.u.z64
           sha256sum build/u/ge007.u.z64 patched.u.z64
           diff <(xxd build/u/ge007.u.z64) <(xxd patched.u.z64)
 
