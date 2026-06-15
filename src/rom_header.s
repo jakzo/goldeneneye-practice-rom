@@ -12,7 +12,7 @@
 .word  0x00000000 # unknown
 .word  0x0000004E # cartridge
 .ifdef PRACTICE_ROM
-.ascii "ZL"       # cartridge ID (Zelda OOT uses SRAM save type)
+.ascii "ED"       # cartridge ID (Advanced Homebrew ROM Header)
 .else
 .ascii "GE"       # cartridge ID
 .endif
@@ -25,4 +25,8 @@
 .ifdef LANG_EU
 .ascii "P"        # country
 .endif
+.ifdef PRACTICE_ROM
+.byte  0x06       # save type: 1M SRAM (libdragon homebrew header spec)
+.else
 .byte  0x00       # version
+.endif
