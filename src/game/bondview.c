@@ -44,6 +44,8 @@
 #include "unk_0B3200.h"
 #include "practice/practice_timescale.h"
 #include "practice/practice_hotkeys.h"
+#include "practice/practice_ui.h"
+#include "practice/state/practice_states_utils.h"
 
 #ifdef VERSION_EU
 
@@ -713,6 +715,10 @@ s32 D_80036ABC = 0xFFFFFFFF;
 f32 D_80036AC0 = 1.0;
 //D:80036AC4
 f32 D_80036AC4 = 0.1;
+
+#ifdef PRACTICE_ROM
+static StandTile *g_practice_prev_stand_tile = NULL;
+#endif
 
 // forward declarations
 
@@ -8366,6 +8372,16 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
         g_CurrentPlayer->field_488.pos.f[2]);
 
     g_CurrentPlayer->prop->stan = g_CurrentPlayer->field_488.current_tile_ptr;
+
+#ifdef PRACTICE_ROM
+    // {
+    //     StandTile *newTile = g_CurrentPlayer->prop->stan;
+    //     if (newTile != g_practice_prev_stand_tile) {
+    //         g_practice_prev_stand_tile = newTile;
+    //         practiceLogDebug("Entered stand tile %d", get_tile_offset(newTile));
+    //     }
+    // }
+#endif
 
     g_CurrentPlayer->prop->pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
     g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
