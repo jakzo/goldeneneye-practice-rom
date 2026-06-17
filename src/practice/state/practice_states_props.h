@@ -88,6 +88,11 @@ typedef struct {
 } SavedDoorRecord;
 
 typedef struct {
+  SavedObjectRecord obj;
+  u32 keyflags;
+} SavedKeyRecord;
+
+typedef struct {
   SavedPropRecord prop;
   union {
     SavedDoorRecord door;

@@ -73,14 +73,15 @@ bool save_props_state(SavedPropsState *dst) {
       SavedDoorRecord *savedDoor = ptr;
       SavedObjectRecord *savedObj = &savedDoor->obj;
       ObjectRecord *obj = prop->obj;
+      PropDefHeaderRecord *pdhr = obj;
 
       if (obj == NULL || door == NULL) {
         break;
       }
 
-      savedObj->extrascale = obj->extrascale;
-      savedObj->state = obj->state;
-      savedObj->type = obj->type;
+      savedObj->extrascale = pdhr->extrascale;
+      savedObj->state = pdhr->state;
+      savedObj->type = pdhr->type;
       savedObj->obj = obj->obj;
       savedObj->pad = obj->pad;
       savedObj->flags = obj->flags;
@@ -124,9 +125,51 @@ bool save_props_state(SavedPropsState *dst) {
       break;
     }
 
+    case PROP_TYPE_OBJ: {
+      ObjectRecord *obj = prop->obj;
+      PropDefHeaderRecord *pdhr = obj;
+
+      switch (prop->type) {
+      case PROPDEF_KEY: {
+        KeyRecord *key = prop->door;
+        SavedKeyRecord *savedKey = ptr;
+        SavedObjectRecord *savedObj = &savedKey->obj;
+
+        if (obj == NULL || key == NULL) {
+          break;
+        }
+
+        savedObj->extrascale = pdhr->extrascale;
+        savedObj->state = pdhr->state;
+        savedObj->type = pdhr->type;
+        savedObj->obj = obj->obj;
+        savedObj->pad = obj->pad;
+        savedObj->flags = obj->flags;
+        savedObj->flags2 = obj->flags2;
+        savedObj->mtx = obj->mtx;
+        savedObj->runtime_pos = obj->runtime_pos;
+        savedObj->runtime_bitflags = obj->runtime_bitflags;
+        savedObj->maxdamage = obj->maxdamage;
+        savedObj->damage = obj->damage;
+        savedObj->shadecol = obj->shadecol;
+        savedObj->nextcol = obj->nextcol;
+
+        savedKey->keyflags = key->keyflags;
+
+        ptr += sizeof(SavedKeyRecord);
+        break;
+      }
+
+        // TODO: Support all PROPDEF types
+
+      default:
+        break;
+      }
+      break;
+    }
+
     // TODO: Support these prop types in future
     case PROP_TYPE_NUL:
-    case PROP_TYPE_OBJ:
     case PROP_TYPE_CHR:
     case PROP_TYPE_WEAPON:
     case PROP_TYPE_PLAYER:
@@ -146,6 +189,41 @@ bool save_props_state(SavedPropsState *dst) {
   dst->indexOfFirstEntry = get_prop_index(ptr_obj_pos_list_first_entry);
   dst->indexOfCurrentEntry = get_prop_index(ptr_obj_pos_list_current_entry);
   dst->indexOfFinalEntry = get_prop_index(ptr_obj_pos_list_final_entry);
+  return TRUE;
+}
+
+static bool load_saved_object(char *typeName, ObjectRecord *obj,
+                              SavedObjectRecord *savedObj, PropRecord *prop) {
+  PropDefHeaderRecord *pdhr = obj;
+
+  pdhr->extrascale = savedObj->extrascale;
+  pdhr->state = savedObj->state;
+  pdhr->type = savedObj->type;
+  obj->obj = savedObj->obj;
+  obj->pad = savedObj->pad;
+  obj->flags = savedObj->flags;
+  obj->flags2 = savedObj->flags2;
+  obj->prop = prop;
+  if (obj->model == NULL) {
+    practiceLogWarn("%s prop has no model set", typeName);
+    return FALSE;
+  }
+  obj->mtx = savedObj->mtx;
+  obj->runtime_pos = savedObj->runtime_pos;
+  obj->runtime_bitflags = savedObj->runtime_bitflags;
+  if (obj->ptr_allocated_collisiondata_block == NULL) {
+    practiceLogWarn("%s prop has no collision data set", typeName);
+    return FALSE;
+  }
+  if (obj->projectile || obj->embedment) {
+    practiceLogWarn("%s prop has projectile/embedment set", typeName);
+    return FALSE;
+  }
+  obj->maxdamage = savedObj->maxdamage;
+  obj->damage = savedObj->damage;
+  obj->shadecol = savedObj->shadecol;
+  obj->nextcol = savedObj->nextcol;
+
   return TRUE;
 }
 
@@ -186,6 +264,11 @@ bool load_props_state(SavedPropsState *src) {
     switch ((PROP_TYPE)prop->type) {
     case PROP_TYPE_DOOR:
       supportedType = TRUE;
+    case PROP_TYPE_OBJ:
+      switch (prop->obj && prop->obj->obj) {
+      case PROPDEF_KEY:
+        supportedType = TRUE;
+      }
     }
 
     if (ADD_AND_REMOVE_PROPS || supportedType) {
@@ -225,33 +308,8 @@ bool load_props_state(SavedPropsState *src) {
         return FALSE;
       }
 
-      obj->extrascale = savedObj->extrascale;
-      obj->state = savedObj->state;
-      obj->type = savedObj->type;
-      obj->obj = savedObj->obj;
-      obj->pad = savedObj->pad;
-      obj->flags = savedObj->flags;
-      obj->flags2 = savedObj->flags2;
-      obj->prop = prop;
-      if (obj->model == NULL) {
-        practiceLogWarn("Door prop at index %d has no model set",
-                        savedProp->index);
+      if (!load_saved_object("Door", obj, savedObj, prop))
         return FALSE;
-      }
-      obj->mtx = savedObj->mtx;
-      obj->runtime_pos = savedObj->runtime_pos;
-      obj->runtime_bitflags = savedObj->runtime_bitflags;
-      if (obj->ptr_allocated_collisiondata_block == NULL) {
-        practiceLogWarn("Door prop at index %d has no collision data set",
-                        savedProp->index);
-        return FALSE;
-      }
-      // projectile/embedment never set for doors
-      // obj->projectile = NULL; obj->embedment = NULL;
-      obj->maxdamage = savedObj->maxdamage;
-      obj->damage = savedObj->damage;
-      obj->shadecol = savedObj->shadecol;
-      obj->nextcol = savedObj->nextcol;
 
       // TODO: Would it be simpler and faster to just memcpy all this?
       // door->linkedDoorOffset should never change
@@ -291,7 +349,7 @@ bool load_props_state(SavedPropsState *src) {
 
       // Handle vertical/sliding door vertex clipping (DOORFLAG_0004)
       if (door->doorFlags & DOORFLAG_0004) {
-        Model *model = door->model;
+        Model *model = obj->model;
         ModelNode *node = model->obj->RootNode->Child->Child;
         struct ModelRoData_DisplayList_CollisionRecord *dlcRecord =
             (struct ModelRoData_DisplayList_CollisionRecord *)node->Data;
@@ -324,9 +382,31 @@ bool load_props_state(SavedPropsState *src) {
       }
       break;
     }
+
+    case PROP_TYPE_OBJ: {
+      switch (prop->obj && prop->obj->obj) {
+      case PROPDEF_KEY: {
+        const SavedKeyRecord *savedKey = (const SavedKeyRecord *)ptr;
+        KeyRecord *key = prop->obj;
+
+        if (!load_saved_object("Key", key, &savedKey->obj, prop))
+          return FALSE;
+
+        key->keyflags = savedKey->keyflags;
+
+        break;
+      }
+
+        // TODO: Support all PROPDEF types
+
+      default:
+        break;
+      }
+      break;
+    }
+
     // TODO: Support these prop types in future
     case PROP_TYPE_NUL:
-    case PROP_TYPE_OBJ:
     case PROP_TYPE_CHR:
     case PROP_TYPE_WEAPON:
     case PROP_TYPE_PLAYER:
