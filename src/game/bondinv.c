@@ -9,6 +9,7 @@
 #include "gun.h"
 #include "lvl.h"
 #include <bondtypes.h>
+#include "practice/practice_splits.h"
 
 void bondinvReinitInv(void)
 {
@@ -458,6 +459,11 @@ int bondinvAddPropToInv(PropRecord *prop)
         item->type                         = INV_ITEM_PROP;
         item->type_inv_item.type_prop.prop = prop;
         bondinvInsertItem(item);
+
+#if PRACTICE_ROM
+        // This should really be in collect_or_interact_object
+        split_if_necessary_on_item_pickup(prop);
+#endif
     }
 
     return TRUE;

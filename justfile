@@ -23,6 +23,9 @@ make:
     if test -z "$(docker images -q {{ image }})"; then just setup; fi
     docker run --rm -v "$(pwd):/home/dev" {{ image }} make -j$(nproc) COMPARE=0 FINAL=YES
 
+make-debug:
+    docker run --rm -v "$(pwd):/home/dev" {{ image }} make -j$(nproc) COMPARE=0 FINAL=NO
+
 # builds the rom and uploads it to a connected summercart64
 sc64: make
     sc64deployer sd mkdir /CUSTOM || true

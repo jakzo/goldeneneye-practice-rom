@@ -1,6 +1,7 @@
 #ifndef PRACTICE_SPLITS_H
 #define PRACTICE_SPLITS_H
 
+#include "bondtypes.h"
 #include <ultra64.h>
 
 /**
@@ -12,22 +13,17 @@ typedef struct {
   f32 z;
 } SplitVertex;
 
-typedef enum {
-  SPLIT_TYPE_AREA = 0,
-  SPLIT_TYPE_ITEM,
-  SPLIT_TYPE_KEY
-} SplitType;
+typedef enum { SPLIT_TYPE_NONE, SPLIT_TYPE_AREA, SPLIT_TYPE_ITEM } SplitType;
 
 /**
  * A single split: a named region, item, or key pickup that triggers a split.
  */
 typedef struct {
   const char *name;
-  SplitVertex vertices[4];
   SplitType type;
-  s32 item_id;
-  u32 key_flags;
-} SplitArea;
+  const char *item;
+  SplitVertex vertices[4];
+} Split;
 
 /**
  * Split list for a specific level+difficulty combo.
@@ -36,7 +32,7 @@ typedef struct {
 typedef struct {
   s32 level_id;
   s32 difficulty;
-  const SplitArea *splits; // NULL-terminated array
+  const Split *splits; // NULL-terminated array
 } SplitList;
 
 /**
@@ -56,6 +52,8 @@ void splits_tick(void);
  * Returns TRUE if the hotkey was consumed.
  */
 void splits_log_position(void);
+
+void split_if_necessary_on_item_pickup(PropRecord *prop);
 
 s32 splits_have_final(void);
 Gfx *splits_render_final(Gfx *DL);
