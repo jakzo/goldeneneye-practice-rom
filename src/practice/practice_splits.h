@@ -12,12 +12,21 @@ typedef struct {
   f32 z;
 } SplitVertex;
 
+typedef enum {
+  SPLIT_TYPE_AREA = 0,
+  SPLIT_TYPE_ITEM,
+  SPLIT_TYPE_KEY
+} SplitType;
+
 /**
- * A single split: a named quad region that triggers when Bond enters it.
+ * A single split: a named region, item, or key pickup that triggers a split.
  */
 typedef struct {
   const char *name;
   SplitVertex vertices[4];
+  SplitType type;
+  s32 item_id;
+  u32 key_flags;
 } SplitArea;
 
 /**

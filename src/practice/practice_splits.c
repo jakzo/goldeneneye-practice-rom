@@ -12,6 +12,51 @@
 
 // Forward declarations for game globals not exposed in headers
 extern s32 g_CurrentStageToLoad;
+extern int bondinvHasInvItem(ITEM_IDS item);
+extern bool bondinvCheckHasKeyFlags(u32 wantkeyflags);
+
+static s32 splits_check_item_held(s32 item_id) {
+  InvItem *first;
+  InvItem *item;
+
+  if (bondinvHasInvItem((ITEM_IDS)item_id)) {
+    return TRUE;
+  }
+
+  if (g_CurrentPlayer == NULL) {
+    return FALSE;
+  }
+
+  first = g_CurrentPlayer->ptr_inventory_first_in_cycle;
+  item = first;
+  while (item != NULL) {
+    if (item->type == INV_ITEM_PROP) {
+      PropRecord *prop = item->type_inv_item.type_prop.prop;
+      if (prop != NULL) {
+        if (prop->type == PROP_TYPE_WEAPON) {
+          WeaponObjRecord *weapon = (WeaponObjRecord *)prop->obj;
+          if (weapon != NULL && weapon->weaponnum == item_id) {
+            return TRUE;
+          }
+        } else if (prop->type == PROP_TYPE_OBJ) {
+          ObjectRecord *obj = prop->obj;
+          if (obj != NULL && obj->type == PROPDEF_COLLECTABLE) {
+            WeaponObjRecord *weapon = (WeaponObjRecord *)obj;
+            if (weapon->weaponnum == item_id) {
+              return TRUE;
+            }
+          }
+        }
+      }
+    }
+    item = item->next;
+    if (item == first) {
+      break;
+    }
+  }
+
+  return FALSE;
+}
 extern DIFFICULTY selected_difficulty;
 extern s32 mission_timer;
 extern s32 g_GlobalTimer;
@@ -64,6 +109,13 @@ static const SplitArea g_Runway_Agent_Splits[] = {
         },
     },
     {
+        "Key pickup",
+        { {0,0}, {0,0}, {0,0}, {0,0} },
+        SPLIT_TYPE_KEY,
+        0,
+        1
+    },
+    {
         "Hut exit",
         {
             {5720.0f, -7100.0f},
@@ -79,6 +131,15 @@ static const SplitArea g_Runway_Agent_Splits[] = {
             {6530.0f, -8760.0f},
             {6430.0f, -9320.0f},
             {7660.0f, -8920.0f},
+        },
+    },
+    {
+        "Turret",
+        {
+            {6970.0f, -17920.0f},
+            {11280.0f, -16670.0f},
+            {10960.0f, -15600.0f},
+            {7830.0f, -16500.0f},
         },
     },
     {
@@ -265,6 +326,7 @@ void splits_tick(void) {
   s32 current_time;
   s32 delta;
   s32 prev_time;
+  s32 triggered;
   char time_buf[16];
   char delta_buf[16];
   const SplitArea *next_split;
@@ -322,9 +384,19 @@ void splits_tick(void) {
   bond_x = prop->pos.x;
   bond_z = prop->pos.z;
 
-  // Check if Bond is inside the next split quad
+  // Check if the split is triggered
   next_split = &s_CurrentSplitList->splits[s_NextSplitIndex];
-  if (point_in_quad(bond_x, bond_z, next_split->vertices)) {
+  triggered = FALSE;
+
+  if (next_split->type == SPLIT_TYPE_AREA) {
+    triggered = point_in_quad(bond_x, bond_z, next_split->vertices);
+  } else if (next_split->type == SPLIT_TYPE_ITEM) {
+    triggered = splits_check_item_held(next_split->item_id);
+  } else if (next_split->type == SPLIT_TYPE_KEY) {
+    triggered = bondinvCheckHasKeyFlags(next_split->key_flags);
+  }
+
+  if (triggered) {
     // Split triggered!
     current_time = mission_timer;
     delta = current_time - s_LastMissionTimer;
