@@ -25,9 +25,9 @@ To avoid distributing copyrighted material, only patch files are to be included 
 
 ## Debugging
 
-Easiest way is to log to the screen with `practiceLogDebug`.
+Easiest way is to log to the screen with `practiceLogDebug`. These will also log to STDOUT of supported emulators (such as ares). If you want to only log to STDOUT you can use `emu_log_write`.
 
-However if you use an emulator like [ares](https://ares-emu.net/download) you can start a GDB server and compiling with `FINAL=NO` will include debug symbols, so you can use GDB to attach a debugger and step through the code. Full command is:
+If you use an emulator like [ares](https://ares-emu.net/download) you can start a GDB server and compiling with `FINAL=NO` will include debug symbols, so you can use GDB to attach a debugger. Full command is:
 
 ```sh
 docker run --rm -v $(pwd):/home/dev goldeneye make -j8 COMPARE=0 FINAL=NO
@@ -39,7 +39,7 @@ But there are some limitations:
     - Need to run the full fresh build command below to fix
 - The compiler does not support DWARF debug symbols so no line breaks
 
-However if you want to run on the console this is missing optimizations and there is no need for debugging symbols so using `FINAL=YES` (default) then you can compile a more console-friendly build:
+Also keep in mind that this build is missing optimizations which you get with `FINAL=YES` (default):
 
 ```sh
 docker run --rm -v $(pwd):/home/dev goldeneye make -j8 COMPARE=0
