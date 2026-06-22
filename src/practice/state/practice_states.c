@@ -3,72 +3,83 @@
 #include "practice_sram.h"
 #include "practice_states_bond.h"
 #include "practice_states_globals.h"
+#include "practice_storage.h"
 #include "practice_ui.h"
 #include <bondconstants.h>
 #include <music.h>
 #include <snd.h>
 #include <ultra64.h>
 
-static union {
-  SaveState state;
-  // Force g_SaveStateUnion (and therefore state) to be 8-byte aligned
-  u64 align_dummy;
-} g_SaveStateUnion;
-#define g_SaveState g_SaveStateUnion.state
-
 extern s32 g_CurrentStageToLoad;
 
+/* Small header cache so we can validate without re-reading SRAM. */
+static SaveStateHeader g_SavedHeader;
 bool g_HasSavedState = FALSE;
 
 void init_save_state_system(void) {
-  SaveStateHeader header;
-  bool isValidSave;
+  StorageCursor cur;
 
-  sram_read(SAVE_STATE_SRAM_OFFSET, &header, sizeof(SaveStateHeader));
+  storage_cursor_init(&cur, SAVE_STATE_SRAM_OFFSET);
+  storage_read(&cur, &g_SavedHeader, sizeof(g_SavedHeader));
 
-  isValidSave =
-      header.magic == SAVE_STATE_MAGIC && header.size <= sizeof(SaveState);
-  if (isValidSave) {
-    sram_read(SAVE_STATE_SRAM_OFFSET, &g_SaveState, header.size);
-    g_HasSavedState = TRUE;
-  } else {
-    g_HasSavedState = FALSE;
-  }
+  g_HasSavedState = g_SavedHeader.magic == SAVE_STATE_MAGIC &&
+                    g_SavedHeader.version == SAVE_STATE_VERSION;
 }
 
 void save_game_state(void) {
-  u8 *start;
-  u8 *prop_data_start;
-  s32 data_size;
+  StorageCursor cur;
+  SaveWorkMem work;
+  u32 totalStart;
+  u32 totalEnd;
 
   if (g_CurrentPlayer == NULL)
     return;
 
-  g_SaveState.header.magic = SAVE_STATE_MAGIC;
-  g_SaveState.header.version = SAVE_STATE_VERSION;
-  g_SaveState.header.level_id = g_CurrentStageToLoad;
+  storage_cursor_init(&cur, SAVE_STATE_SRAM_OFFSET);
+  totalStart = cur.offset;
 
-  save_global_state(&g_SaveState.global_state);
-  save_bond_state(&g_SaveState.bond_state);
-  if (!save_props_state(&g_SaveState.props_state)) {
+  /* 1. Write header (size patched at the end). */
+  work.header.magic = SAVE_STATE_MAGIC;
+  work.header.version = SAVE_STATE_VERSION;
+  work.header.level_id = g_CurrentStageToLoad;
+  work.header.size = 0; /* patched below */
+  /* Copy to g_SavedHeader now — work.header will be overwritten by
+     subsequent section fills (work is a union). */
+  g_SavedHeader = work.header;
+  storage_write(&cur, &work.header, sizeof(work.header));
+
+  /* 2. Write globals (small sparse section via working memory). */
+  save_global_state(&work.globals);
+  storage_write(&cur, &work.globals, sizeof(work.globals));
+
+  /* 3. Write bond state (player blocks direct + helper + inventory). */
+  save_bond_state(&cur, &work);
+
+  /* 4. Write props state (per-record streaming). */
+  if (!save_props_state(&cur, &work)) {
     practiceLogWarn("Failed to save state");
     return;
   }
 
+  /* 5. Patch the header size field in g_SavedHeader (already has
+     correct magic/version/level_id from step 1). */
+  totalEnd = cur.offset;
+  g_SavedHeader.size = totalEnd - totalStart;
+  {
+    StorageCursor patchCur;
+    storage_cursor_init(&patchCur, SAVE_STATE_SRAM_OFFSET);
+    storage_write(&patchCur, &g_SavedHeader, sizeof(g_SavedHeader));
+  }
+
   g_HasSavedState = TRUE;
-
-  start = (u8 *)&g_SaveState;
-  prop_data_start = (u8 *)g_SaveState.props_state.data;
-  data_size = prop_data_start + g_SaveState.props_state.size - start;
-  g_SaveState.header.size = data_size;
-
-  sram_write(SAVE_STATE_SRAM_OFFSET, &g_SaveState, g_SaveState.header.size);
 
   sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State saved");
 }
 
 void load_game_state(void) {
+  StorageCursor cur;
+
   if (g_CurrentPlayer == NULL || !g_HasSavedState) {
     if (!g_HasSavedState) {
       practiceLogWarn("No saved state");
@@ -76,34 +87,49 @@ void load_game_state(void) {
     return;
   }
 
-  if (g_SaveState.header.magic != SAVE_STATE_MAGIC) {
+  if (g_SavedHeader.magic != SAVE_STATE_MAGIC) {
     practiceLogWarn("Invalid save");
     return;
   }
 
-  if (g_SaveState.header.version < SAVE_STATE_VERSION) {
+  if (g_SavedHeader.version < SAVE_STATE_VERSION) {
     practiceLogWarn("Save was made with an older ROM version");
     return;
   }
 
-  if (g_SaveState.header.version > SAVE_STATE_VERSION) {
+  if (g_SavedHeader.version > SAVE_STATE_VERSION) {
     practiceLogWarn("Save was made with a newer ROM version");
     return;
   }
 
-  if (g_SaveState.header.level_id != g_CurrentStageToLoad) {
+  if (g_SavedHeader.level_id != g_CurrentStageToLoad) {
     practiceLogWarn("Save does not match current level");
     return;
   }
 
-  // Stop all active sound effects before loading state
+  /* Stop all active sound effects before loading state. */
   sndDeactivateAllSfxByFlag_1();
 
-  load_global_state(&g_SaveState.global_state);
-  load_bond_state(&g_SaveState.bond_state);
-  if (!load_props_state(&g_SaveState.props_state)) {
-    practiceLogWarn("Failed to load state");
-    return;
+  storage_cursor_init(&cur, SAVE_STATE_SRAM_OFFSET);
+
+  {
+    SaveWorkMem work;
+
+    /* 1. Skip header (already validated from g_SavedHeader). */
+    cur.offset += sizeof(work.header);
+
+    /* 2. Load globals. */
+    storage_read(&cur, &work.globals, sizeof(work.globals));
+    load_global_state(&work.globals);
+
+    /* 3. Load bond state. */
+    load_bond_state(&cur, &work);
+
+    /* 4. Load props state. */
+    if (!load_props_state(&cur, &work)) {
+      practiceLogWarn("Failed to load state");
+      return;
+    }
   }
 
   sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);

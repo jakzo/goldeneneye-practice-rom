@@ -71,14 +71,4 @@ typedef struct {
 void save_global_state(SavedGlobals *dst);
 void load_global_state(SavedGlobals *src);
 
-void save_hud_state(SavedHudState *dst);
-void load_hud_state(SavedHudState *src);
-void save_font_state(SavedFontState *dst);
-void load_font_state(SavedFontState *src);
-
-void save_tank_state(SavedTankState *dst);
-void load_tank_state(SavedTankState *src);
-void save_camera_state(SavedCameraState *dst);
-void load_camera_state(SavedCameraState *src);
-
 #endif /* PRACTICE_STATES_GLOBALS_H */

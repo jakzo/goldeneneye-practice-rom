@@ -2,13 +2,13 @@
 #define PRACTICE_STATES_PROPS_H
 
 #include "chrai.h"
+#include "practice_storage.h"
 #include <bondtypes.h>
 #include <ultra64.h>
 
-// TODO: This is safer but makes the memory usage huge
-// #define PROPS_STATE_BUFFER_MAX (sizeof(SavedRecordsOfProp) *
-// POS_DATA_ENTRY_LEN)
-#define PROPS_STATE_BUFFER_MAX 60000
+/* The props block is streamed record-by-record to storage; no large
+   in-memory buffer is needed.  These limits are used for bounds checks
+   against the working-memory record. */
 
 typedef struct {
   u16 byteSize;
@@ -300,16 +300,20 @@ typedef struct {
   } type;
 } SavedRecordsOfProp;
 
+/* Props block header — written to storage before the variable-length
+   prop records.  Also used as PropsHeaderSection in the working-memory
+   union (see practice_states.h). */
 typedef struct {
   u32 size;
   u16 recordCount;
   s16 indexOfFirstEntry;
   s16 indexOfCurrentEntry;
   s16 indexOfFinalEntry;
-  u8 data[PROPS_STATE_BUFFER_MAX];
-} SavedPropsState;
+} PropsHeaderSection;
 
-bool save_props_state(SavedPropsState *dst);
-bool load_props_state(SavedPropsState *src);
+typedef PropsHeaderSection SavedPropsState;
+
+/* Function declarations moved to practice_states.h (where SaveWorkMem
+   is defined) to avoid circular include dependencies. */
 
 #endif /* PRACTICE_STATES_PROPS_H */
