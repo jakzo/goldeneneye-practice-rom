@@ -739,7 +739,8 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
 
       // TODO: Would it be simpler and faster to just memcpy all this?
       // door->linkedDoorOffset should never change
-      door->maxFrac = savedDoor->maxFrac;
+      // TODO: Figure out why maxFrac is always set to 0xFFFFFFFF!?!?
+      // door->maxFrac = savedDoor->maxFrac;
       door->perimFrac = savedDoor->perimFrac;
       door->accel = savedDoor->accel;
       door->decel = savedDoor->decel;

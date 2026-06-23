@@ -96,3 +96,21 @@ When adding a new `.c` file, Makefile will automatically pick it up but it must 
 - `ld/game.data.ld.inc`
 - `ld/game.bss.ld.inc`
 - `ld/game.rodata.ld.inc`
+
+---
+
+## Debugging
+
+1. Build the ROM with debug symbols:
+    - `docker run --rm -v $(pwd):/home/dev goldeneye make -j8 COMPARE=0 FINAL=NO`
+2. Start the ares emulator
+    - `/Applications/ares.app/Contents/MacOS/ares ./build/u/ge007.u.z64`
+    - This will start a GDB server on localhost:9123 which you can connect to while the emulator is running
+    - You can set the emulator to start at a certain level and skip the intro then trigger things to happen n frames after load
+    - You typically need to run the emulator for up to 10 seconds before the level loads and longer for whatever you want to trigger
+    - If you stop this command the emulator will quit!
+    - If you do run the emulator in the background remember to kill it later
+3. Use the GDB MCP tools to connect
+    - See the settings in `.vscode/launch.json` for how to connect
+    - Note that the compiler is old and does NOT produce debug symbols so only function breakpoints (not lines) work
+    - You will also not be able to see variables and must look at the memory address pointed to by pointer arguments in the CPU registers
