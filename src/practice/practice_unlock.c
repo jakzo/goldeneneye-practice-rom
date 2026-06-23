@@ -19,6 +19,8 @@ void practice_unlock_default_profile(void) {
   bool isUnlocked;
   s32 level;
   s32 diff;
+  LEVEL_SOLO_SEQUENCE highestStageLevelId;
+  DIFFICULTY highestStageDifficulty;
 
   save = fileGetSaveForFoldernum(FOLDER1);
 
@@ -27,10 +29,6 @@ void practice_unlock_default_profile(void) {
     save = fileGetSaveForFoldernum(FOLDER1);
     if (!save)
       return;
-
-    save->options = DEFAULT_OPTIONS;
-    save->music_vol = 0xFF;
-    save->sfx_vol = 0xFF;
   }
 
   isUnlocked = save->unlocked_cheats_1 == 0xFF &&
@@ -38,6 +36,14 @@ void practice_unlock_default_profile(void) {
                save->unlocked_cheats_3 == 0xFF && (save->flag_007 & 1) != 0;
   if (isUnlocked)
     return;
+
+  fileGetHighestStageDifficultyCompletedForFolder(FOLDER1, &highestStageLevelId,
+                                                  &highestStageDifficulty);
+  if (highestStageLevelId < LEVELID_DAM ||
+      highestStageDifficulty < DIFFICULTY_AGENT) {
+    save->options = DEFAULT_OPTIONS |
+                    ((CONTROLLER_CONFIG_SOLITARE << 8) & OPTION_CONTROLTYPE);
+  }
 
   for (level = SP_LEVEL_DAM; level < SP_LEVEL_MAX; level++) {
     for (diff = DIFFICULTY_AGENT; diff < DIFFICULTY_007; diff++) {
