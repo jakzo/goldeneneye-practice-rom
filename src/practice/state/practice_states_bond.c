@@ -327,12 +327,12 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
         s32 horizontal_offset, s32 vertical_offset);
     extern Gfx *sub_GAME_7F0A3B40(Gfx * gdl, s32 * arg1);
 
-    sub_GAME_7F0A3330(&g_CurrentPlayer->watch_body_armor_bar_gdl,
-                      OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values),
+    sub_GAME_7F0A3330((Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl,
+                      (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values),
                       0x2E);
     sub_GAME_7F0A3330(
-        &g_CurrentPlayer->watch_health_bar_gdl,
-        OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
+        (Gfx *)&g_CurrentPlayer->watch_health_bar_gdl,
+        (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
     sub_GAME_7F0A69A8();
 
@@ -346,7 +346,7 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
            i += WATCH_SCREEN_SELECT_RECTANGLE_HSTEP) {
         struct WatchVertex *ptr_copy = ptr_a;
         ptr_a = setup_watch_rectangles(ptr_a, i, 0, 0x64, 0x14, -0x12B, 0x136);
-        ptr_b = sub_GAME_7F0A3B40(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
+        ptr_b = sub_GAME_7F0A3B40(ptr_b, (s32 *)OS_K0_TO_PHYSICAL(ptr_copy));
       }
       gSPEndDisplayList(ptr_b);
 
@@ -358,7 +358,7 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
         setup_watch_rectangles(
             &g_CurrentPlayer->buffer_for_watch_static_vertices->vtx[0], 0, 0,
             0x398, 0x14, -0x1CC, 0);
-        ptr_b = sub_GAME_7F0A3B40(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
+        ptr_b = sub_GAME_7F0A3B40(ptr_b, (s32 *)OS_K0_TO_PHYSICAL(ptr_copy));
         gSPEndDisplayList(ptr_b);
       }
     }

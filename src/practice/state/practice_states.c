@@ -73,7 +73,7 @@ void save_game_state(void) {
 
   g_HasSavedState = TRUE;
 
-  sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
+  sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State saved");
 }
 
@@ -132,6 +132,6 @@ void load_game_state(void) {
     }
   }
 
-  sndPlaySfx(g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
+  sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State loaded");
 }

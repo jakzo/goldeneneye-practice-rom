@@ -86,6 +86,9 @@ SECTIONS
    BEGIN_SEG(game, _inflateSegmentRomEnd, 0x7F000000)
    {
 #include "ld/game.text.ld.inc"
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*.o (.text.*);
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*/[a-zA-Z0-9_]*.o (.text.*);
+      *libgcc.a (.text .text.*);
    }
    END_SEG(game)
 
@@ -206,6 +209,9 @@ SECTIONS
 #include "ld/lib.rodata.ld.inc"
 #include "ld/game.data.ld.inc"
 #include "ld/game.rodata.ld.inc"
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*.o (.rodata.* .data.*);
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*/[a-zA-Z0-9_]*.o (.rodata.* .data.*);
+      *libgcc.a (.rodata .rodata.* .data .data.*);
       build/OUTCODE/src/gspboot.o (.data);
       build/OUTCODE/src/aspboot.o (.data);
    }
@@ -220,6 +226,9 @@ SECTIONS
    {
 #include "ld/lib.bss.ld.inc"
 #include "ld/game.bss.ld.inc"
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*.o (.bss.*);
+      build/OUTCODE/src/practice/[a-zA-Z0-9_]*/[a-zA-Z0-9_]*.o (.bss.*);
+      *libgcc.a (.bss .bss.*);
    }
    _bssSegmentEnd = ADDR(.bss) + SIZEOF(.bss);
    _bssSegmentSize = SIZEOF(.bss);

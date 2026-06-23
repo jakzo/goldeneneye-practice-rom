@@ -27,7 +27,6 @@
 #include <ultra64.h>
 #include <bondconstants.h>
 #include "snd.h"
-#include "game/chrobjdata.h"
 
 /**
  * Syntax Sugar for clarification of intent
@@ -3028,7 +3027,11 @@ typedef union
     typedef struct CCTVRecord
     {
         struct ObjectRecord;
+#ifdef PRACTICE_ROM
+        s32 cctv_pad;
+#else
         s32 pad;
+#endif
         Mtxf unk84;
         f32 unkC4;
         f32 unkC8;
@@ -4110,5 +4113,7 @@ struct s_display_list_something
     u8 unkE;
     u8 unkF;
 };
+
+#include "game/chrobjdata.h"
 
 #endif

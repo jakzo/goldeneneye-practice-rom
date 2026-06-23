@@ -293,7 +293,7 @@ void trigger_split() {
 
   // Log the split
   {
-    Split *split = &s_CurrentSplitList->splits[s_CurrentSplitIndex];
+    const Split *split = &s_CurrentSplitList->splits[s_CurrentSplitIndex];
     format_time(mission_timer, time_buf, TRUE);
     format_time(delta, delta_buf, FALSE);
     practiceLogInfo("SPLIT %d/%d: %s - %s (delta: %s)", s_CurrentSplitIndex + 1,
@@ -435,7 +435,9 @@ Gfx *splits_render_final(Gfx *DL) {
   return DL;
 }
 
-static bool item_names_match(char *inventoryName, char *splitItemName) {
+extern char *langGet(s32 id);
+
+static bool item_names_match(const char *inventoryName, const char *splitItemName) {
   s32 i;
   for (i = 0; i < 64; i++) {
     char a = inventoryName[i];
@@ -453,7 +455,7 @@ static bool item_names_match(char *inventoryName, char *splitItemName) {
 }
 
 void split_if_necessary_on_item_pickup(PropRecord *prop) {
-  Split *split;
+  const Split *split;
   textoverride *override;
 
   if (!s_CurrentSplitList || s_CurrentSplitIndex >= s_TotalSplits)

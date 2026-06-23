@@ -133,9 +133,9 @@ static f32 g_LogSlideRate = 0.0f;
 static void ensure_timing_initialized(void) {
   if (g_LogLifetimeCycles != 0)
     return;
-  g_LogLifetimeCycles = (OSTime)(osClockRate * practice.log_message_duration);
-  g_LogSlideCycles = (OSTime)(osClockRate * SLIDE_DURATION);
-  g_LogSlideRate = SLIDE_RATE_PER_S / (f32)osClockRate;
+  g_LogLifetimeCycles = (OSTime)(s32)((f32)(s32)osClockRate * practice.log_message_duration);
+  g_LogSlideCycles = (OSTime)(s32)((f32)(s32)osClockRate * SLIDE_DURATION);
+  g_LogSlideRate = SLIDE_RATE_PER_S / (f32)(s32)osClockRate;
 }
 
 // Culls the oldest N messages from the circular queue
@@ -270,11 +270,11 @@ Gfx *practice_ui_render(Gfx *gdl) {
 
   // Render green "P" indicator at bottom-left of the visible area
   {
-    struct fontchar *fontCharsZurich = ptrFontZurichBoldChars;
+    struct fontchar *fontCharsZurich = (struct fontchar *)ptrFontZurichBoldChars;
     struct fontchar *charP = &fontCharsZurich['P'];
     s32 p_x = MARGIN_RIGHT;
     s32 p_y = viGetY() - charP->baseline - charP->height - MARGIN_BOTTOM;
-    gdl = renderText(gdl, &p_x, &p_y, "P", fontCharsZurich, ptrFontZurichBold,
+    gdl = renderText(gdl, &p_x, &p_y, "P", (s32)fontCharsZurich, ptrFontZurichBold,
                      0x00CC00FF, viGetX(), viGetY());
 
     // Render mission timer next to the "P" indicator

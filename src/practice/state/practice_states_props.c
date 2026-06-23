@@ -22,6 +22,7 @@ extern void sub_GAME_7F050DE8(Model *model);
 extern void sub_GAME_7F06EFC4(Model *model);
 extern void objDeform(ObjectRecord *obj, s32 arg1);
 extern PathRecord *pathFindById(s32 ID);
+extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
 
 static void removePropAtIndex(s16 index) {
   PropRecord *toClear = get_prop_by_index(index);
@@ -35,7 +36,7 @@ static void removePropAtIndex(s16 index) {
 }
 
 static void save_object_base(SavedObjectRecord *savedObj, ObjectRecord *obj) {
-  PropDefHeaderRecord *pdhr = obj;
+  PropDefHeaderRecord *pdhr = (PropDefHeaderRecord *)obj;
   savedObj->extrascale = pdhr->extrascale;
   savedObj->state = pdhr->state;
   savedObj->type = pdhr->type;
@@ -207,7 +208,7 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         CCTVRecord *cctv = (CCTVRecord *)obj;
         SavedCCTVRecord *savedCCTV = &work->propRecord.type.cctv;
         save_object_base(&savedCCTV->obj, obj);
-        savedCCTV->pad = cctv->pad;
+        savedCCTV->pad = cctv->cctv_pad;
         savedCCTV->unk84 = cctv->unk84;
         savedCCTV->unkC4 = cctv->unkC4;
         savedCCTV->unkC8 = cctv->unkC8;
@@ -568,9 +569,9 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
 /* Load                                                                */
 /* ------------------------------------------------------------------ */
 
-static bool load_saved_object(char *typeName, ObjectRecord *obj,
-                              SavedObjectRecord *savedObj, PropRecord *prop) {
-  PropDefHeaderRecord *pdhr = obj;
+static bool load_saved_object(const char *typeName, ObjectRecord *obj,
+                              const SavedObjectRecord *savedObj, PropRecord *prop) {
+  PropDefHeaderRecord *pdhr = (PropDefHeaderRecord *)obj;
   s32 destroyedLvl;
 
   pdhr->extrascale = savedObj->extrascale;
@@ -861,7 +862,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         if (!load_saved_object("CCTV", (ObjectRecord *)cctv, &savedCCTV->obj,
                                prop))
           return FALSE;
-        cctv->pad = savedCCTV->pad;
+        cctv->cctv_pad = savedCCTV->pad;
         cctv->unk84 = savedCCTV->unk84;
         cctv->unkC4 = savedCCTV->unkC4;
         cctv->unkC8 = savedCCTV->unkC8;

@@ -7,6 +7,7 @@
 #include "chrai.h"
 #include "chrlv.h"
 #include "chrobjhandler.h"
+#include "dyn.h"
 #include "explosions.h"
 #include "lvl.h"
 #include "player.h"

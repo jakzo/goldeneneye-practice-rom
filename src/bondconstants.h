@@ -122,7 +122,48 @@ typedef enum NAME \
   */IF(NOT(IS_EMPTY(af)))(NAME ## _ ## af = 1 << 31)                   /*\
 */} NAME;
 #else
+#ifdef PRACTICE_ROM
+#    define BITFLAG_FIXED(NAME,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,aa,ab,ac,ad,ae,af,...) \
+typedef enum NAME \
+{ \
+  NAME ## _NONE,\
+  IF(NOT(IS_EMPTY(a)))(NAME ## _ ## a = 1 << 0) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(b))))\
+  IF(NOT(IS_EMPTY(b)))(NAME ## _ ## b = 1 << 1) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(c))))\
+  IF(NOT(IS_EMPTY(c)))(NAME ## _ ## c = 1 << 2) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(d))))\
+  IF(NOT(IS_EMPTY(d)))(NAME ## _ ## d = 1 << 3) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(e))))\
+  IF(NOT(IS_EMPTY(e)))(NAME ## _ ## e = 1 << 4) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(f))))\
+  IF(NOT(IS_EMPTY(f)))(NAME ## _ ## f = 1 << 5) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(g))))\
+  IF(NOT(IS_EMPTY(g)))(NAME ## _ ## g = 1 << 6) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(h))))\
+  IF(NOT(IS_EMPTY(h)))(NAME ## _ ## h = 1 << 7) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(i))))\
+  IF(NOT(IS_EMPTY(i)))(NAME ## _ ## i = 1 << 8) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(j))))\
+  IF(NOT(IS_EMPTY(j)))(NAME ## _ ## j = 1 << 9) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(k))))\
+  IF(NOT(IS_EMPTY(k)))(NAME ## _ ## k = 1 << 10) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(l))))\
+  IF(NOT(IS_EMPTY(l)))(NAME ## _ ## l = 1 << 11) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(m))))\
+  IF(NOT(IS_EMPTY(m)))(NAME ## _ ## m = 1 << 12) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(n))))\
+  IF(NOT(IS_EMPTY(n)))(NAME ## _ ## n = 1 << 13) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(o))))\
+  IF(NOT(IS_EMPTY(o)))(NAME ## _ ## o = 1 << 14) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(p))))\
+  IF(NOT(IS_EMPTY(p)))(NAME ## _ ## p = 1 << 15) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(q))))\
+  IF(NOT(IS_EMPTY(q)))(NAME ## _ ## q = 1 << 16) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(r))))\
+  IF(NOT(IS_EMPTY(r)))(NAME ## _ ## r = 1 << 17) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(s))))\
+  IF(NOT(IS_EMPTY(s)))(NAME ## _ ## s = 1 << 18) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(t))))\
+  IF(NOT(IS_EMPTY(t)))(NAME ## _ ## t = 1 << 19) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(u))))\
+  IF(NOT(IS_EMPTY(u)))(NAME ## _ ## u = 1 << 20) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(v))))\
+  IF(NOT(IS_EMPTY(v)))(NAME ## _ ## v = 1 << 21) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(w))))\
+  IF(NOT(IS_EMPTY(w)))(NAME ## _ ## w = 1 << 22) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(x))))\
+  IF(NOT(IS_EMPTY(x)))(NAME ## _ ## x = 1 << 23) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(y))))\
+  IF(NOT(IS_EMPTY(y)))(NAME ## _ ## y = 1 << 24) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(z))))\
+  IF(NOT(IS_EMPTY(z)))(NAME ## _ ## z = 1 << 25) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(aa))))\
+  IF(NOT(IS_EMPTY(aa)))(NAME ## _ ## aa = 1 << 26) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(ab))))\
+  IF(NOT(IS_EMPTY(ab)))(NAME ## _ ## ab = 1 << 27) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(ac))))\
+  IF(NOT(IS_EMPTY(ac)))(NAME ## _ ## ac = 1 << 28) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(ad))))\
+  IF(NOT(IS_EMPTY(ad)))(NAME ## _ ## ad = 1 << 29) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(ae))))\
+  IF(NOT(IS_EMPTY(ae)))(NAME ## _ ## ae = 1 << 30) EVAL1(COMMA_IF_I(NOT(IS_EMPTY(af))))\
+  IF(NOT(IS_EMPTY(af)))(NAME ## _ ## af = 1 << 31)                   \
+} NAME;
+#    define BITFLAG(NAME, ...) BITFLAG_FIXED(NAME, __VA_ARGS__, , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , )
+#else
 #    define BITFLAG(...)
+#endif
 #endif
 
 #pragma endregion

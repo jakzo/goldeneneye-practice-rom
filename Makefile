@@ -207,6 +207,10 @@ BOOT_LEVEL ?= LEVELID_TITLE
 
 CFLAGS := -Wab,-r4300_mul -non_shared -Olimit 2000 -G 0 -Xcpluscomm $(CFLAGWARNING) $(WOFF) $(INCLUDE) $(MIPSISET) $(LCDEFS) -DTARGET_N64 -DPRACTICE_ROM -DBOOT_LEVEL=$(BOOT_LEVEL)
 
+CC_GCC := $(TOOLCHAIN)gcc
+CFLAGS_GCC := -march=vr4300 -mabi=32 -fno-pic -mno-abicalls -fms-extensions -fno-stack-protector -G 0 -g $(OPTIMIZATION) $(INCLUDE) $(LCDEFS) -DTARGET_N64 -DPRACTICE_ROM -DBOOT_LEVEL=$(BOOT_LEVEL)
+LIBGCC := $(shell $(CC_GCC) -print-libgcc-file-name)
+
 # Ensure the build directory for practice files exists
 $(shell mkdir -p $(BUILD_DIR)/src/practice)
 
@@ -292,6 +296,11 @@ $(BUILD_DIR)/assets/images/split/%.o: assets/images/split/%.bin
 $(BUILD_DIR)/$(OBSEGMENT): $(OBSEG_RZ) $(IMAGE_OBJS)
 
 
+# Build C files in src/practice/ using GCC
+$(BUILD_DIR)/src/practice/%.o: src/practice/%.c
+	$(CC_GCC) -c $(CFLAGS_GCC) -o $@ $<
+
+
 #Build C files in src/
 # convert AI_PRINT commands from readable to byte-array
 $(BUILD_DIR)/src/%.o: src/%.c
@@ -339,7 +348,7 @@ endif
 $(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_RZ) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_RZ_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) $(PRACTICEOBJECTS) ge007.ld
 	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/ge007.$(OUTCODE).ld
 	@echo "Linking Files into ELF"
-	$(LD) $(LDFLAGS) -o $@
+	$(LD) $(LDFLAGS) -o $@ $(LIBGCC)
 
 $(APPBIN): $(APPELF)
 	@echo "Building ROM"
