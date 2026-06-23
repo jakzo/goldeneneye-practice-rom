@@ -1,0 +1,8 @@
+{
+    "[c]": {
+        "editor.defaultFormatter": "seaube.clangformat"
+    },
+    "[h]": {
+        "editor.defaultFormatter": "seaube.clangformat"
+    }
+}

@@ -1,0 +1,37 @@
+{
+  "configurations": [
+    {
+      "name": "GoldenEye Practice ROM",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/include/PR",
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/src/game",
+        "${workspaceFolder}/src/inflate",
+        "${workspaceFolder}/src/practice",
+        "${workspaceFolder}/src/practice/state"
+      ],
+      "defines": [
+        "VERSION_US",
+        "TARGET_N64",
+        "PRACTICE_ROM",
+        "LANG_US",
+        "REFRESH_NTSC",
+        "LEFTOVERDEBUG",
+        "LEFTOVERSPECTRUM",
+        "BUGFIX_R0",
+        "BYTEMATCH",
+        "_LANGUAGE_C"
+      ],
+      "cStandard": "c11",
+      "cppStandard": "c++11",
+      "intelliSenseMode": "macos-clang-x64",
+      "compilerPath": "/usr/bin/clang",
+      "compilerArgs": [
+        "-fms-extensions"
+      ]
+    }
+  ],
+  "version": 4
+}

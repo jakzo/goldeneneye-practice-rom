@@ -1,0 +1,42 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Connect to Ares GDB (Practice ROM)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/u/ge007.u.elf",
+      "miDebuggerServerAddress": "localhost:9123",
+      "miDebuggerPath": "/opt/homebrew/bin/mipsel-linux-gnu-gdb",
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Ignore SIGSEGV exceptions in emulator",
+          "text": "handle SIGSEGV nostop noprint pass",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Ignore SIGBUS exceptions in emulator",
+          "text": "handle SIGBUS nostop noprint pass",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Ignore SIGILL exceptions in emulator",
+          "text": "handle SIGILL nostop noprint pass",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Ignore SIGFPE exceptions in emulator",
+          "text": "handle SIGFPE nostop noprint pass",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
