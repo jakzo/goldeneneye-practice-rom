@@ -139,18 +139,22 @@ void load_values_state(SavedValuesState *src) {
   g_chrObjRandomSeed = src->g_chrObjRandomSeed;
 }
 
-void save_global_state(SavedGlobals *dst) {
-  save_hud_state(&dst->hud);
-  save_font_state(&dst->font);
-  save_tank_state(&dst->tank);
-  save_camera_state(&dst->camera);
-  save_values_state(&dst->values);
+void save_global_state(SramStream *stream) {
+  SavedGlobals globals;
+  save_hud_state(&globals.hud);
+  save_font_state(&globals.font);
+  save_tank_state(&globals.tank);
+  save_camera_state(&globals.camera);
+  save_values_state(&globals.values);
+  sram_stream_write_bytes(stream, &globals, sizeof(globals));
 }
 
-void load_global_state(SavedGlobals *src) {
-  load_hud_state(&src->hud);
-  load_font_state(&src->font);
-  load_tank_state(&src->tank);
-  load_camera_state(&src->camera);
-  load_values_state(&src->values);
+void load_global_state(SramStream *stream) {
+  SavedGlobals globals;
+  sram_stream_read_bytes(stream, &globals, sizeof(globals));
+  load_hud_state(&globals.hud);
+  load_font_state(&globals.font);
+  load_tank_state(&globals.tank);
+  load_camera_state(&globals.camera);
+  load_values_state(&globals.values);
 }

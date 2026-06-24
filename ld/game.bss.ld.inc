@@ -93,6 +93,7 @@
       build/OUTCODE/src/practice/state/practice_states_globals.o (.bss);
       build/OUTCODE/src/practice/state/practice_states_props.o (.bss);
       build/OUTCODE/src/practice/state/practice_states_utils.o (.bss);
+      build/OUTCODE/src/practice/state/practice_states_stream.o (.bss);
       build/OUTCODE/src/practice/state/practice_storage.o (.bss);
       build/OUTCODE/src/practice/practice_config.o (.bss);
       build/OUTCODE/src/practice/practice_hotkeys.o (.bss);

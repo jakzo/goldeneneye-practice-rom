@@ -1,6 +1,7 @@
 #ifndef PRACTICE_STATES_GLOBALS_H
 #define PRACTICE_STATES_GLOBALS_H
 
+#include "practice_states_stream.h"
 #include <ultra64.h>
 
 #define BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH 0x65
@@ -68,7 +69,7 @@ typedef struct {
   SavedValuesState values;
 } SavedGlobals;
 
-void save_global_state(SavedGlobals *dst);
-void load_global_state(SavedGlobals *src);
+void save_global_state(SramStream *stream);
+void load_global_state(SramStream *stream);
 
 #endif /* PRACTICE_STATES_GLOBALS_H */

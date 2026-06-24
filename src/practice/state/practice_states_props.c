@@ -1,4 +1,5 @@
 #include "practice_states_props.h"
+#include "../practice_sram.h"
 #include "chrai.h"
 #include "chrobjhandler.h"
 #include "emu_log.h"
@@ -90,16 +91,15 @@ static void save_object_base(SavedObjectRecord *savedObj, ObjectRecord *obj) {
 /* ------------------------------------------------------------------ */
 /* Save — streams each prop record to storage via the working memory.  */
 /* ------------------------------------------------------------------ */
-
-bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
+bool save_props_state(SramStream *stream) {
   u32 headerOffset;
   u32 dataStart;
-  PropsHeaderSection hdr; /* local — NOT in the union (work->propRecord
-                              overwrites the union during the loop) */
+  PropsHeaderSection hdr;
   s32 i;
   u32 pi;
+  SavedRecordsOfProp propRecord;
 
-  headerOffset = cur->offset;
+  headerOffset = stream->sram_base + stream->total_processed;
   hdr.recordCount = 0;
   hdr.size = 0;
   hdr.indexOfFirstEntry = get_prop_index(ptr_obj_pos_list_first_entry);
@@ -107,13 +107,13 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
   hdr.indexOfFinalEntry = get_prop_index(ptr_obj_pos_list_final_entry);
 
   /* Write placeholder header (patched at the end). */
-  storage_write(cur, &hdr, sizeof(hdr));
-  dataStart = cur->offset;
+  sram_stream_write_bytes(stream, &hdr, sizeof(hdr));
+  dataStart = stream->sram_base + stream->total_processed;
 
   for (i = 0; i < POS_DATA_ENTRY_LEN; i++) {
     PropRecord *prop = get_prop_by_index(i);
-    SavedPropRecord *savedProp = &work->propRecord.prop;
-    u16 byteSize = sizeof(SavedPropRecord);
+    SavedPropRecord *savedProp = &propRecord.prop;
+    u32 typeSize = 0;
 
     if (prop == NULL || !(prop->flags & PROPFLAG_ENABLED)) {
       continue;
@@ -139,7 +139,7 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
     switch ((PROP_TYPE)prop->type) {
     case PROP_TYPE_DOOR: {
       DoorRecord *door = prop->door;
-      SavedDoorRecord *savedDoor = &work->propRecord.type.door;
+      SavedDoorRecord *savedDoor = &propRecord.type.door;
 
       if (door == NULL) {
         break;
@@ -174,7 +174,7 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
       savedDoor->portalNumber = door->portalNumber;
       savedDoor->lastcalc60i = door->lastcalc60i;
 
-      byteSize = sizeof(SavedPropRecord) + sizeof(SavedDoorRecord);
+      typeSize = sizeof(SavedDoorRecord);
       break;
     }
 
@@ -192,22 +192,22 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
       case PROPDEF_HAT:
       case PROPDEF_UNK41:
       case PROPDEF_GAS_RELEASING: {
-        SavedObjectRecord *savedObj = &work->propRecord.type.door.obj;
+        SavedObjectRecord *savedObj = &propRecord.type.door.obj;
         save_object_base(savedObj, obj);
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedObjectRecord);
+        typeSize = sizeof(SavedObjectRecord);
         break;
       }
       case PROPDEF_KEY: {
         KeyRecord *key = (KeyRecord *)obj;
-        SavedKeyRecord *savedKey = &work->propRecord.type.key;
+        SavedKeyRecord *savedKey = &propRecord.type.key;
         save_object_base(&savedKey->obj, obj);
         savedKey->keyflags = key->keyflags;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedKeyRecord);
+        typeSize = sizeof(SavedKeyRecord);
         break;
       }
       case PROPDEF_CCTV: {
         CCTVRecord *cctv = (CCTVRecord *)obj;
-        SavedCCTVRecord *savedCCTV = &work->propRecord.type.cctv;
+        SavedCCTVRecord *savedCCTV = &propRecord.type.cctv;
         save_object_base(&savedCCTV->obj, obj);
         savedCCTV->pad = cctv->cctv_pad;
         savedCCTV->unk84 = cctv->unk84;
@@ -225,20 +225,20 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedCCTV->unkF0 = cctv->unkF0;
         savedCCTV->unkF4 = cctv->unkF4;
         savedCCTV->unkF8 = cctv->unkF8;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedCCTVRecord);
+        typeSize = sizeof(SavedCCTVRecord);
         break;
       }
       case PROPDEF_MAGAZINE: {
         AmmoCrateRecord *mag = (AmmoCrateRecord *)obj;
-        SavedAmmoCrateRecord *savedMag = &work->propRecord.type.magazine;
+        SavedAmmoCrateRecord *savedMag = &propRecord.type.magazine;
         save_object_base(&savedMag->obj, obj);
         savedMag->ammoType = mag->ammoType;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedAmmoCrateRecord);
+        typeSize = sizeof(SavedAmmoCrateRecord);
         break;
       }
       case PROPDEF_COLLECTABLE: {
         WeaponObjRecord *wpn = (WeaponObjRecord *)obj;
-        SavedWeaponObjRecord *savedWpn = &work->propRecord.type.weaponObj;
+        SavedWeaponObjRecord *savedWpn = &propRecord.type.weaponObj;
         save_object_base(&savedWpn->obj, obj);
         savedWpn->weaponnum = wpn->weaponnum;
         savedWpn->LinkedWeaponType = wpn->LinkedWeaponType;
@@ -247,12 +247,12 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
             (wpn->dualweapon && wpn->dualweapon->prop)
                 ? get_prop_index(wpn->dualweapon->prop)
                 : -1;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedWeaponObjRecord);
+        typeSize = sizeof(SavedWeaponObjRecord);
         break;
       }
       case PROPDEF_MONITOR: {
         MonitorObjRecord *mon = (MonitorObjRecord *)obj;
-        SavedMonitorObjRecord *savedMon = &work->propRecord.type.monitor;
+        SavedMonitorObjRecord *savedMon = &propRecord.type.monitor;
         save_object_base(&savedMon->obj, obj);
 
         savedMon->Monitor.cmdlist = (u32)mon->Monitor.cmdlist;
@@ -298,13 +298,12 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedMon->OwnerOffset = mon->OwnerOffset;
         savedMon->OwnerPart = mon->OwnerPart;
         savedMon->ImageNum = mon->ImageNum;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedMonitorObjRecord);
+        typeSize = sizeof(SavedMonitorObjRecord);
         break;
       }
       case PROPDEF_MULTI_MONITOR: {
         MultiMonitorObjRecord *mmon = (MultiMonitorObjRecord *)obj;
-        SavedMultiMonitorObjRecord *savedMmon =
-            &work->propRecord.type.multiMonitor;
+        SavedMultiMonitorObjRecord *savedMmon = &propRecord.type.multiMonitor;
         s32 m;
         save_object_base(&savedMmon->obj, obj);
 
@@ -354,12 +353,12 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedMmon->ImageNums[1] = mmon->ImageNums[1];
         savedMmon->ImageNums[2] = mmon->ImageNums[2];
         savedMmon->ImageNums[3] = mmon->ImageNums[3];
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedMultiMonitorObjRecord);
+        typeSize = sizeof(SavedMultiMonitorObjRecord);
         break;
       }
       case PROPDEF_AUTOGUN: {
         AutogunRecord *agun = (AutogunRecord *)obj;
-        SavedAutogunRecord *savedAgun = &work->propRecord.type.autogun;
+        SavedAutogunRecord *savedAgun = &propRecord.type.autogun;
         save_object_base(&savedAgun->obj, obj);
         savedAgun->padID = agun->padID;
         savedAgun->rot_related = agun->rot_related;
@@ -396,33 +395,33 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         }
         savedAgun->is_active = agun->is_active;
         savedAgun->unkD4 = agun->unkD4;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedAutogunRecord);
+        typeSize = sizeof(SavedAutogunRecord);
         break;
       }
       case PROPDEF_AMMO: {
         MultiAmmoCrateRecord *ammo = (MultiAmmoCrateRecord *)obj;
-        SavedMultiAmmoCrateRecord *savedAmmo = &work->propRecord.type.ammoCrate;
+        SavedMultiAmmoCrateRecord *savedAmmo = &propRecord.type.ammoCrate;
         s32 a;
         save_object_base(&savedAmmo->obj, obj);
         savedAmmo->unk80 = ammo->unk80;
         for (a = 0; a < AMMOTYPE_GLOBAL_MAX; a++) {
           savedAmmo->quantities[a] = ammo->quantities[a];
         }
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedMultiAmmoCrateRecord);
+        typeSize = sizeof(SavedMultiAmmoCrateRecord);
         break;
       }
       case PROPDEF_ARMOUR: {
         BodyArmourRecord *arm = (BodyArmourRecord *)obj;
-        SavedBodyArmourRecord *savedArm = &work->propRecord.type.armour;
+        SavedBodyArmourRecord *savedArm = &propRecord.type.armour;
         save_object_base(&savedArm->obj, obj);
         savedArm->initialamount = arm->initialamount;
         savedArm->amount = arm->amount;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedBodyArmourRecord);
+        typeSize = sizeof(SavedBodyArmourRecord);
         break;
       }
       case PROPDEF_VEHICHLE: {
         VehichleRecord *veh = (VehichleRecord *)obj;
-        SavedVehichleRecord *savedVeh = &work->propRecord.type.vehicle;
+        SavedVehichleRecord *savedVeh = &propRecord.type.vehicle;
         bool isGlobal;
         save_object_base(&savedVeh->obj, obj);
         savedVeh->ailist =
@@ -438,12 +437,12 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedVeh->roty = veh->roty;
         savedVeh->path = veh->path ? veh->path->ID : 0;
         savedVeh->nextstep = veh->nextstep;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedVehichleRecord);
+        typeSize = sizeof(SavedVehichleRecord);
         break;
       }
       case PROPDEF_AIRCRAFT: {
         AircraftRecord *air = (AircraftRecord *)obj;
-        SavedAircraftRecord *savedAir = &work->propRecord.type.aircraft;
+        SavedAircraftRecord *savedAir = &propRecord.type.aircraft;
         bool isGlobal;
         save_object_base(&savedAir->obj, obj);
         savedAir->ailist =
@@ -460,33 +459,33 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedAir->yrot = air->yrot;
         savedAir->nextstep = air->nextstep;
         savedAir->path = air->path ? air->path->ID : 0;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedAircraftRecord);
+        typeSize = sizeof(SavedAircraftRecord);
         break;
       }
       case PROPDEF_GLASS:
       case PROPDEF_SAFE: {
         GlassRecord *gl = (GlassRecord *)obj;
-        SavedGlassRecord *savedGl = &work->propRecord.type.glass;
+        SavedGlassRecord *savedGl = &propRecord.type.glass;
         save_object_base(&savedGl->obj, obj);
         savedGl->normal = gl->normal;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedGlassRecord);
+        typeSize = sizeof(SavedGlassRecord);
         break;
       }
       case PROPDEF_TINTED_GLASS: {
         TintedGlassRecord *tgl = (TintedGlassRecord *)obj;
-        SavedTintedGlassRecord *savedTgl = &work->propRecord.type.tintedGlass;
+        SavedTintedGlassRecord *savedTgl = &propRecord.type.tintedGlass;
         save_object_base(&savedTgl->obj, obj);
         savedTgl->TintDist = tgl->TintDist;
         savedTgl->CullDist = tgl->CullDist;
         savedTgl->calculatedopacity = tgl->calculatedopacity;
         savedTgl->portalnum = tgl->portalnum;
         savedTgl->unk90 = tgl->unk90;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedTintedGlassRecord);
+        typeSize = sizeof(SavedTintedGlassRecord);
         break;
       }
       case PROPDEF_TANK: {
         TankRecord *tank = (TankRecord *)obj;
-        SavedTankRecord *savedTank = &work->propRecord.type.tank;
+        SavedTankRecord *savedTank = &propRecord.type.tank;
         save_object_base(&savedTank->obj, obj);
         savedTank->rect = tank->rect;
         savedTank->unkA4 = tank->unkA4;
@@ -504,7 +503,7 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
         savedTank->stan_y = tank->stan_y;
         savedTank->unkD8 = tank->unkD8;
         savedTank->tank_orientation_angle = tank->tank_orientation_angle;
-        byteSize = sizeof(SavedPropRecord) + sizeof(SavedTankRecord);
+        typeSize = sizeof(SavedTankRecord);
         break;
       }
       default:
@@ -524,44 +523,42 @@ bool save_props_state(StorageCursor *cur, SaveWorkMem *work) {
       break;
     }
 
-    savedProp->byteSize = byteSize;
-    storage_write(cur, &work->propRecord, byteSize);
+    sram_stream_write_bytes(stream, savedProp, sizeof(SavedPropRecord));
+    if (typeSize > 0) {
+      sram_stream_write_bytes(stream, &propRecord.type, typeSize);
+    }
     hdr.recordCount++;
   }
 
   /* Save projectile snapshots. */
   // TODO: Potentially could exclude matrixes from projectile/embed data
   for (pi = 0; pi < PROJECTILES_ARR_MAX; pi++) {
-    SavedProjectileEntry *projEntry = &work->projectile;
-    projEntry->index = (s32)pi;
-    projEntry->projectile = g_Projectiles[pi];
-    projEntry->projectile.obj = NULL;
-    projEntry->projectile.ownerprop = NULL;
-    projEntry->projectile.sound1 = NULL;
-    projEntry->projectile.sound2 = NULL;
-    storage_write(cur, projEntry, sizeof(*projEntry));
+    SavedProjectileEntry projEntry;
+    projEntry.index = (s32)pi;
+    projEntry.projectile = g_Projectiles[pi];
+    projEntry.projectile.obj = NULL;
+    projEntry.projectile.ownerprop = NULL;
+    projEntry.projectile.sound1 = NULL;
+    projEntry.projectile.sound2 = NULL;
+    sram_stream_write_bytes(stream, &projEntry, sizeof(projEntry));
   }
 
   /* Save embedment snapshots. */
   for (pi = 0; pi < EMBEDMENT_ARR_MAX; pi++) {
-    SavedEmbedmentEntry *embEntry = &work->embedment;
+    SavedEmbedmentEntry embEntry;
     s32 projIdx = -1;
-    embEntry->index = (s32)pi;
-    embEntry->embedment = g_Embedments[pi];
+    embEntry.index = (s32)pi;
+    embEntry.embedment = g_Embedments[pi];
     if (g_Embedments[pi].projectile != NULL) {
       projIdx = g_Embedments[pi].projectile - g_Projectiles;
     }
-    embEntry->embedment.projectile = (struct Projectile *)(s32)projIdx;
-    storage_write(cur, embEntry, sizeof(*embEntry));
+    embEntry.embedment.projectile = (struct Projectile *)(s32)projIdx;
+    sram_stream_write_bytes(stream, &embEntry, sizeof(embEntry));
   }
 
   /* Patch the props header with the real size and record count. */
-  hdr.size = cur->offset - dataStart;
-  {
-    StorageCursor patchCur;
-    storage_cursor_init(&patchCur, headerOffset);
-    storage_write(&patchCur, &hdr, sizeof(hdr));
-  }
+  hdr.size = stream->total_processed - dataStart;
+  sram_write(headerOffset, &hdr, sizeof(hdr));
 
   return TRUE;
 }
@@ -622,33 +619,84 @@ static bool load_saved_object(const char *typeName, ObjectRecord *obj,
 
   return TRUE;
 }
+static u32 get_obj_subtype_size(u8 obj_type) {
+  switch (obj_type) {
+  case PROPDEF_PROP:
+  case PROPDEF_ALARM:
+  case PROPDEF_RACK:
+  case PROPDEF_HAT:
+  case PROPDEF_UNK41:
+  case PROPDEF_GAS_RELEASING:
+    return sizeof(SavedObjectRecord) - sizeof(SavedObjectRecord); // 0
+  case PROPDEF_KEY:
+    return sizeof(SavedKeyRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_CCTV:
+    return sizeof(SavedCCTVRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_MAGAZINE:
+    return sizeof(SavedAmmoCrateRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_COLLECTABLE:
+    return sizeof(SavedWeaponObjRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_MONITOR:
+    return sizeof(SavedMonitorObjRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_MULTI_MONITOR:
+    return sizeof(SavedMultiMonitorObjRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_AUTOGUN:
+    return sizeof(SavedAutogunRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_AMMO:
+    return sizeof(SavedMultiAmmoCrateRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_ARMOUR:
+    return sizeof(SavedBodyArmourRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_VEHICHLE:
+    return sizeof(SavedVehichleRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_AIRCRAFT:
+    return sizeof(SavedAircraftRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_GLASS:
+  case PROPDEF_SAFE:
+    return sizeof(SavedGlassRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_TINTED_GLASS:
+    return sizeof(SavedTintedGlassRecord) - sizeof(SavedObjectRecord);
+  case PROPDEF_TANK:
+    return sizeof(SavedTankRecord) - sizeof(SavedObjectRecord);
+  default:
+    return 0;
+  }
+}
 
-bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
-  PropsHeaderSection hdr; /* local — NOT in the union */
+bool load_props_state(SramStream *stream) {
+  PropsHeaderSection hdr;
   u32 dataStart;
   s32 i;
   u16 nextIndexToRemove = 0;
   s32 c;
   u32 pi;
+  SavedRecordsOfProp propRec;
 
   /* Read props header. */
-  storage_read(cur, &hdr, sizeof(hdr));
-  dataStart = cur->offset;
+  sram_stream_read_bytes(stream, &hdr, sizeof(hdr));
+  dataStart = stream->sram_base + stream->total_processed;
 
   for (i = 0; i < hdr.recordCount; i++) {
-    SavedPropRecord *savedProp = &work->propRecord.prop;
-    u16 byteSize;
+    SavedPropRecord *savedProp = &propRec.prop;
     PropRecord *prop;
     bool supportedType = FALSE;
 
-    /* Read the SavedPropRecord header to get byteSize. */
-    storage_read(cur, savedProp, sizeof(SavedPropRecord));
-    byteSize = savedProp->byteSize;
+    /* Read the SavedPropRecord. */
+    sram_stream_read_bytes(stream, savedProp, sizeof(SavedPropRecord));
 
     /* Read the type-specific data into the union. */
-    if (byteSize > sizeof(SavedPropRecord)) {
-      storage_read(cur, &work->propRecord.type,
-                   byteSize - sizeof(SavedPropRecord));
+    if (savedProp->type == PROP_TYPE_DOOR) {
+      sram_stream_read_bytes(stream, &propRec.type.door,
+                             sizeof(SavedDoorRecord));
+    } else if (savedProp->type == PROP_TYPE_OBJ) {
+      sram_stream_read_bytes(stream, &propRec.type.door.obj,
+                             sizeof(SavedObjectRecord));
+      u8 obj_type = propRec.type.door.obj.type;
+      u32 remainder_size = get_obj_subtype_size(obj_type);
+      if (remainder_size > 0) {
+        sram_stream_read_bytes(
+            stream, ((u8 *)&propRec.type) + sizeof(SavedObjectRecord),
+            remainder_size);
+      }
     }
 
     prop = get_prop_by_index(savedProp->index);
@@ -724,7 +772,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
 
     switch ((PROP_TYPE)savedProp->type) {
     case PROP_TYPE_DOOR: {
-      const SavedDoorRecord *savedDoor = &work->propRecord.type.door;
+      const SavedDoorRecord *savedDoor = &propRec.type.door;
       const SavedObjectRecord *savedObj = &savedDoor->obj;
       DoorRecord *door = prop->door;
       ObjectRecord *obj = prop->obj;
@@ -742,7 +790,6 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
 
       // TODO: Would it be simpler and faster to just memcpy all this?
       // door->linkedDoorOffset should never change
-      // TODO: Figure out why maxFrac is always set to 0xFFFFFFFF!?!?
       door->maxFrac = savedDoor->maxFrac;
       door->perimFrac = savedDoor->perimFrac;
       door->accel = savedDoor->accel;
@@ -843,14 +890,14 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
       case PROPDEF_UNK41:
       case PROPDEF_GAS_RELEASING: {
         const SavedObjectRecord *savedObj =
-            (const SavedObjectRecord *)&work->propRecord.type;
+            (const SavedObjectRecord *)&propRec.type;
         if (!load_saved_object("Prop/Generic", obj,
                                (SavedObjectRecord *)savedObj, prop))
           return FALSE;
         break;
       }
       case PROPDEF_KEY: {
-        const SavedKeyRecord *savedKey = &work->propRecord.type.key;
+        const SavedKeyRecord *savedKey = &propRec.type.key;
         KeyRecord *key = (KeyRecord *)obj;
         if (!load_saved_object("Key", (ObjectRecord *)key, &savedKey->obj,
                                prop))
@@ -859,7 +906,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_CCTV: {
-        const SavedCCTVRecord *savedCCTV = &work->propRecord.type.cctv;
+        const SavedCCTVRecord *savedCCTV = &propRec.type.cctv;
         CCTVRecord *cctv = (CCTVRecord *)obj;
         if (!load_saved_object("CCTV", (ObjectRecord *)cctv, &savedCCTV->obj,
                                prop))
@@ -883,7 +930,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_MAGAZINE: {
-        const SavedAmmoCrateRecord *savedMag = &work->propRecord.type.magazine;
+        const SavedAmmoCrateRecord *savedMag = &propRec.type.magazine;
         AmmoCrateRecord *mag = (AmmoCrateRecord *)obj;
         if (!load_saved_object("Magazine", (ObjectRecord *)mag, &savedMag->obj,
                                prop))
@@ -892,7 +939,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_COLLECTABLE: {
-        const SavedWeaponObjRecord *savedWpn = &work->propRecord.type.weaponObj;
+        const SavedWeaponObjRecord *savedWpn = &propRec.type.weaponObj;
         WeaponObjRecord *wpn = (WeaponObjRecord *)obj;
         if (!load_saved_object("Weapon", (ObjectRecord *)wpn, &savedWpn->obj,
                                prop))
@@ -907,7 +954,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_MONITOR: {
-        const SavedMonitorObjRecord *savedMon = &work->propRecord.type.monitor;
+        const SavedMonitorObjRecord *savedMon = &propRec.type.monitor;
         MonitorObjRecord *mon = (MonitorObjRecord *)obj;
         if (!load_saved_object("Monitor", (ObjectRecord *)mon, &savedMon->obj,
                                prop))
@@ -961,7 +1008,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
       }
       case PROPDEF_MULTI_MONITOR: {
         const SavedMultiMonitorObjRecord *savedMmon =
-            &work->propRecord.type.multiMonitor;
+            &propRec.type.multiMonitor;
         MultiMonitorObjRecord *mmon = (MultiMonitorObjRecord *)obj;
         s32 m;
         if (!load_saved_object("MultiMonitor", (ObjectRecord *)mmon,
@@ -1018,7 +1065,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_AUTOGUN: {
-        const SavedAutogunRecord *savedAgun = &work->propRecord.type.autogun;
+        const SavedAutogunRecord *savedAgun = &propRec.type.autogun;
         AutogunRecord *agun = (AutogunRecord *)obj;
         if (!load_saved_object("Autogun", (ObjectRecord *)agun, &savedAgun->obj,
                                prop))
@@ -1050,8 +1097,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_AMMO: {
-        const SavedMultiAmmoCrateRecord *savedAmmo =
-            &work->propRecord.type.ammoCrate;
+        const SavedMultiAmmoCrateRecord *savedAmmo = &propRec.type.ammoCrate;
         MultiAmmoCrateRecord *ammo = (MultiAmmoCrateRecord *)obj;
         s32 a;
         if (!load_saved_object("AmmoCrate", (ObjectRecord *)ammo,
@@ -1064,7 +1110,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_ARMOUR: {
-        const SavedBodyArmourRecord *savedArm = &work->propRecord.type.armour;
+        const SavedBodyArmourRecord *savedArm = &propRec.type.armour;
         BodyArmourRecord *arm = (BodyArmourRecord *)obj;
         if (!load_saved_object("Armour", (ObjectRecord *)arm, &savedArm->obj,
                                prop))
@@ -1074,7 +1120,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_VEHICHLE: {
-        const SavedVehichleRecord *savedVeh = &work->propRecord.type.vehicle;
+        const SavedVehichleRecord *savedVeh = &propRec.type.vehicle;
         VehichleRecord *veh = (VehichleRecord *)obj;
         if (!load_saved_object("Vehicle", (ObjectRecord *)veh, &savedVeh->obj,
                                prop))
@@ -1096,7 +1142,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_AIRCRAFT: {
-        const SavedAircraftRecord *savedAir = &work->propRecord.type.aircraft;
+        const SavedAircraftRecord *savedAir = &propRec.type.aircraft;
         AircraftRecord *air = (AircraftRecord *)obj;
         if (!load_saved_object("Aircraft", (ObjectRecord *)air, &savedAir->obj,
                                prop))
@@ -1120,7 +1166,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
       }
       case PROPDEF_GLASS:
       case PROPDEF_SAFE: {
-        const SavedGlassRecord *savedGl = &work->propRecord.type.glass;
+        const SavedGlassRecord *savedGl = &propRec.type.glass;
         GlassRecord *gl = (GlassRecord *)obj;
         if (!load_saved_object("Glass/Safe", (ObjectRecord *)gl, &savedGl->obj,
                                prop))
@@ -1129,8 +1175,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_TINTED_GLASS: {
-        const SavedTintedGlassRecord *savedTgl =
-            &work->propRecord.type.tintedGlass;
+        const SavedTintedGlassRecord *savedTgl = &propRec.type.tintedGlass;
         TintedGlassRecord *tgl = (TintedGlassRecord *)obj;
         if (!load_saved_object("TintedGlass", (ObjectRecord *)tgl,
                                &savedTgl->obj, prop))
@@ -1143,7 +1188,7 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
         break;
       }
       case PROPDEF_TANK: {
-        const SavedTankRecord *savedTank = &work->propRecord.type.tank;
+        const SavedTankRecord *savedTank = &propRec.type.tank;
         TankRecord *tank = (TankRecord *)obj;
         if (!load_saved_object("Tank", (ObjectRecord *)tank, &savedTank->obj,
                                prop))
@@ -1197,19 +1242,20 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
 
   /* Restore projectile snapshots. */
   for (pi = 0; pi < PROJECTILES_ARR_MAX; pi++) {
-    storage_read(cur, &work->projectile, sizeof(work->projectile));
-    g_Projectiles[work->projectile.index] = work->projectile.projectile;
+    SavedProjectileEntry projectile;
+    sram_stream_read_bytes(stream, &projectile, sizeof(projectile));
+    g_Projectiles[projectile.index] = projectile.projectile;
   }
 
   /* Restore embedment snapshots. */
   for (pi = 0; pi < EMBEDMENT_ARR_MAX; pi++) {
-    storage_read(cur, &work->embedment, sizeof(work->embedment));
-    g_Embedments[work->embedment.index] = work->embedment.embedment;
+    SavedEmbedmentEntry embedment;
+    sram_stream_read_bytes(stream, &embedment, sizeof(embedment));
+    g_Embedments[embedment.index] = embedment.embedment;
     {
-      s32 projIdx = (s32)g_Embedments[work->embedment.index].projectile;
+      s32 projIdx = (s32)g_Embedments[embedment.index].projectile;
       if (projIdx >= 0 && projIdx < PROJECTILES_ARR_MAX) {
-        g_Embedments[work->embedment.index].projectile =
-            &g_Projectiles[projIdx];
+        g_Embedments[embedment.index].projectile = &g_Projectiles[projIdx];
       }
     }
   }
@@ -1217,25 +1263,33 @@ bool load_props_state(StorageCursor *cur, SaveWorkMem *work) {
   /* Fix up projectile/embedment back-pointers for restored props.
      Re-read the prop records from storage to get the saved object indices. */
   {
-    StorageCursor fixupCur;
     s32 fi;
 
-    storage_cursor_init(&fixupCur, dataStart);
+    sram_stream_seek(stream, dataStart);
     for (fi = 0; fi < hdr.recordCount; fi++) {
-      SavedPropRecord *savedProp = &work->propRecord.prop;
-      storage_read(&fixupCur, savedProp, sizeof(SavedPropRecord));
+      SavedPropRecord *savedProp = &propRec.prop;
+      sram_stream_read_bytes(stream, savedProp, sizeof(SavedPropRecord));
 
-      if (savedProp->byteSize > sizeof(SavedPropRecord)) {
-        storage_read(&fixupCur, &work->propRecord.type,
-                     savedProp->byteSize - sizeof(SavedPropRecord));
+      if (savedProp->type == PROP_TYPE_DOOR) {
+        sram_stream_read_bytes(stream, &propRec.type.door,
+                               sizeof(SavedDoorRecord));
+      } else if (savedProp->type == PROP_TYPE_OBJ) {
+        sram_stream_read_bytes(stream, &propRec.type.door.obj,
+                               sizeof(SavedObjectRecord));
+        u8 obj_type = propRec.type.door.obj.type;
+        u32 remainder_size = get_obj_subtype_size(obj_type);
+        if (remainder_size > 0) {
+          sram_stream_read_bytes(
+              stream, ((u8 *)&propRec.type) + sizeof(SavedObjectRecord),
+              remainder_size);
+        }
       }
 
       if (savedProp->type == PROP_TYPE_OBJ) {
         PropRecord *prop = get_prop_by_index(savedProp->index);
         if (prop != NULL && prop->obj != NULL) {
           ObjectRecord *obj = prop->obj;
-          SavedObjectRecord *savedObj =
-              (SavedObjectRecord *)&work->propRecord.type;
+          SavedObjectRecord *savedObj = (SavedObjectRecord *)&propRec.type;
           if (savedObj->projectileIdx >= 0 &&
               savedObj->projectileIdx < PROJECTILES_ARR_MAX) {
             obj->projectile = &g_Projectiles[savedObj->projectileIdx];

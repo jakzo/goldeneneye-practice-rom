@@ -44,16 +44,16 @@ static const struct {
     {0x11B8, 0x06C0}, {0x29B8, 0x00B8},
 };
 
-static void save_player_state_direct(StorageCursor *cur, struct player *src) {
+static void save_player_state_direct(SramStream *stream, struct player *src) {
   u8 *src_bytes = (u8 *)src;
   s32 i;
   for (i = 0; i < 5; i++) {
-    storage_write(cur, src_bytes + player_blocks[i].srcoff,
-                  player_blocks[i].size);
+    sram_stream_write_bytes(stream, src_bytes + player_blocks[i].srcoff,
+                            player_blocks[i].size);
   }
 }
 
-static void load_player_state_direct(StorageCursor *cur, struct player *dst) {
+static void load_player_state_direct(SramStream *stream, struct player *dst) {
   u8 *dst_bytes = (u8 *)dst;
   s32 backup_field_5C = dst->field_5C;
   s32 backup_field_60 = dst->field_60;
@@ -73,8 +73,8 @@ static void load_player_state_direct(StorageCursor *cur, struct player *dst) {
   backup_hand_rocket[1] = dst->hands[1].rocket;
 
   for (i = 0; i < 5; i++) {
-    storage_read(cur, dst_bytes + player_blocks[i].srcoff,
-                 player_blocks[i].size);
+    sram_stream_read_bytes(stream, dst_bytes + player_blocks[i].srcoff,
+                           player_blocks[i].size);
   }
 
   dst->field_5C = backup_field_5C;
@@ -95,17 +95,18 @@ static void load_player_state_direct(StorageCursor *cur, struct player *dst) {
 /* Save                                                                */
 /* ------------------------------------------------------------------ */
 
-void save_bond_state(StorageCursor *cur, SaveWorkMem *work) {
+void save_bond_state(SramStream *stream) {
   if (g_CurrentPlayer == NULL) {
     return;
   }
 
   /* 1. Player blocks — direct to storage. */
-  save_player_state_direct(cur, g_CurrentPlayer);
+  save_player_state_direct(stream, g_CurrentPlayer);
 
   /* 2. Bond helper section (sparse fields). */
   {
-    BondHelperSection *h = &work->bondHelper;
+    BondHelperSection helper;
+    BondHelperSection *h = &helper;
     h->room_pointer_offset = get_tile_offset(g_CurrentPlayer->room_pointer);
     h->field_488_current_tile_ptr_offset =
         get_tile_offset(g_CurrentPlayer->field_488.current_tile_ptr);
@@ -133,12 +134,13 @@ void save_bond_state(StorageCursor *cur, SaveWorkMem *work) {
     } else {
       h->has_prop = FALSE;
     }
-    storage_write(cur, h, sizeof(*h));
+    sram_stream_write_bytes(stream, h, sizeof(*h));
   }
 
   /* 3. Inventory section. */
   {
-    BondInventorySection *inv = &work->bondInventory;
+    BondInventorySection inventory;
+    BondInventorySection *inv = &inventory;
     InvItem *first = g_CurrentPlayer->ptr_inventory_first_in_cycle;
     InvItem *item = first;
     s32 count = 0;
@@ -173,7 +175,7 @@ void save_bond_state(StorageCursor *cur, SaveWorkMem *work) {
       } while (item != first && item != NULL);
     }
     inv->num_inv_items = count;
-    storage_write(cur, inv, sizeof(*inv));
+    sram_stream_write_bytes(stream, inv, sizeof(*inv));
   }
 }
 
@@ -181,7 +183,7 @@ void save_bond_state(StorageCursor *cur, SaveWorkMem *work) {
 /* Load                                                                */
 /* ------------------------------------------------------------------ */
 
-void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
+void load_bond_state(SramStream *stream) {
   s32 preload_hand_item[2];
   textoverride *live_textoverrides;
 
@@ -195,12 +197,13 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
   live_textoverrides = g_CurrentPlayer->textoverrides;
 
   /* 2. Read player blocks directly into live struct. */
-  load_player_state_direct(cur, g_CurrentPlayer);
+  load_player_state_direct(stream, g_CurrentPlayer);
 
   /* 3. Read and apply bond helper section. */
   {
-    BondHelperSection *h = &work->bondHelper;
-    storage_read(cur, h, sizeof(*h));
+    BondHelperSection helper;
+    BondHelperSection *h = &helper;
+    sram_stream_read_bytes(stream, h, sizeof(*h));
 
     g_CurrentPlayer->room_pointer = get_tile_by_offset(h->room_pointer_offset);
     g_CurrentPlayer->field_488.current_tile_ptr =
@@ -270,13 +273,14 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
 
   /* 4. Re-initialize inventory, then read and apply inventory section. */
   {
-    BondInventorySection *inv = &work->bondInventory;
+    BondInventorySection inventory;
+    BondInventorySection *inv = &inventory;
     s32 i;
 
     bondinvReinitInv();
     g_CurrentPlayer->textoverrides = live_textoverrides;
 
-    storage_read(cur, inv, sizeof(*inv));
+    sram_stream_read_bytes(stream, inv, sizeof(*inv));
 
     for (i = 0; i < inv->num_inv_items; i++) {
       s32 type = inv->inv_items[i].type;
@@ -327,12 +331,14 @@ void load_bond_state(StorageCursor *cur, SaveWorkMem *work) {
         s32 horizontal_offset, s32 vertical_offset);
     extern Gfx *sub_GAME_7F0A3B40(Gfx * gdl, s32 * arg1);
 
-    sub_GAME_7F0A3330((Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl,
-                      (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values),
-                      0x2E);
+    sub_GAME_7F0A3330(
+        (Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl,
+        (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values),
+        0x2E);
     sub_GAME_7F0A3330(
         (Gfx *)&g_CurrentPlayer->watch_health_bar_gdl,
-        (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
+        (void *)OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values),
+        0x2E);
 
     sub_GAME_7F0A69A8();
 

@@ -4,6 +4,7 @@
 #include "practice_states_bond.h"
 #include "practice_states_globals.h"
 #include "practice_states_props.h"
+#include "practice_states_stream.h"
 #include "practice_storage.h"
 #include <ultra64.h>
 
@@ -63,28 +64,12 @@ typedef struct {
 /* A single prop record (prop header + type-specific union). */
 typedef SavedRecordsOfProp PropRecordSection;
 
-/* Working memory — a union of every section type so that stack usage
-   is bounded by the largest single section (~800 bytes). */
-typedef union SaveWorkMem {
-  SaveStateHeader header;
-  SavedGlobals globals;
-  BondHelperSection bondHelper;
-  BondInventorySection bondInventory;
-  PropsHeaderSection propsHeader;
-  PropRecordSection propRecord;
-  SavedProjectileEntry projectile;
-  SavedEmbedmentEntry embedment;
-} SaveWorkMem;
-
-/* Section save/load functions (declared here because they all use
-   SaveWorkMem and StorageCursor).  Implemented in the respective
-   section files. */
-void save_global_state(SavedGlobals *dst);
-void load_global_state(SavedGlobals *src);
-void save_bond_state(StorageCursor *cur, SaveWorkMem *work);
-void load_bond_state(StorageCursor *cur, SaveWorkMem *work);
-bool save_props_state(StorageCursor *cur, SaveWorkMem *work);
-bool load_props_state(StorageCursor *cur, SaveWorkMem *work);
+void save_global_state(SramStream *stream);
+void load_global_state(SramStream *stream);
+void save_bond_state(SramStream *stream);
+void load_bond_state(SramStream *stream);
+bool save_props_state(SramStream *stream);
+bool load_props_state(SramStream *stream);
 
 extern bool g_HasSavedState;
 

@@ -11,7 +11,6 @@
    against the working-memory record. */
 
 typedef struct {
-  u16 byteSize;
   u16 index;
   u8 type;
   u8 flags;
@@ -312,8 +311,5 @@ typedef struct {
 } PropsHeaderSection;
 
 typedef PropsHeaderSection SavedPropsState;
-
-/* Function declarations moved to practice_states.h (where SaveWorkMem
-   is defined) to avoid circular include dependencies. */
 
 #endif /* PRACTICE_STATES_PROPS_H */
