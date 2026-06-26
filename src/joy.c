@@ -418,6 +418,10 @@ void joyConsumeSamplesWrapper(void)
 
     joyConsumeSamples(&g_ContData[CONTDATA_REGULAR]);
 
+#ifdef PRACTICE_ROM
+    joyUpdateSimulatedButtons();
+#endif
+
     if (g_ContRecordFunc)
     {
         g_ContRecordFunc(g_ContData[CONTDATA_REGULAR].samples, g_ContData[CONTDATA_REGULAR].curstart, g_ContData[CONTDATA_REGULAR].curlast);
@@ -815,6 +819,17 @@ s8 joy7000C284(s8 contpadnum)
     return g_ContDataPtr->samples[g_ContDataPtr->curstart].pads[contpadnum].stick_y;
 }
 
+#ifdef PRACTICE_ROM
+u16 g_SimulatedButtons = 0;
+u16 g_SimulatedButtonsPressed = 0;
+static u16 g_PrevSimulatedButtons = 0;
+
+void joyUpdateSimulatedButtons(void) {
+    g_SimulatedButtonsPressed = g_SimulatedButtons & ~g_PrevSimulatedButtons;
+    g_PrevSimulatedButtons = g_SimulatedButtons;
+}
+#endif
+
 u16 joyGetButtons(s8 contpadnum, u16 mask)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
@@ -823,7 +838,18 @@ u16 joyGetButtons(s8 contpadnum, u16 mask)
         return 0;
     }
 
+#ifdef PRACTICE_ROM
+    if (contpadnum == 0)
+    {
+        return (g_ContDataPtr->samples[g_ContDataPtr->curlast].pads[contpadnum].button | g_SimulatedButtons) & mask;
+    }
+    else
+    {
+        return g_ContDataPtr->samples[g_ContDataPtr->curlast].pads[contpadnum].button & mask;
+    }
+#else
     return g_ContDataPtr->samples[g_ContDataPtr->curlast].pads[contpadnum].button & mask;
+#endif
 }
 
 u16 joyGetButtonsPressedThisFrame(s8 contpadnum, u16 mask)
@@ -834,7 +860,18 @@ u16 joyGetButtonsPressedThisFrame(s8 contpadnum, u16 mask)
         return 0;
     }
 
+#ifdef PRACTICE_ROM
+    if (contpadnum == 0)
+    {
+        return (g_ContDataPtr->buttonspressed[contpadnum] | g_SimulatedButtonsPressed) & mask;
+    }
+    else
+    {
+        return g_ContDataPtr->buttonspressed[contpadnum] & mask;
+    }
+#else
     return g_ContDataPtr->buttonspressed[contpadnum] & mask;
+#endif
 }
 
 void joy7000C430(s8 *bytes, u16 bitfield)

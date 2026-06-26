@@ -125,6 +125,11 @@ ifeq ($(DEV), 1)
  ASMDEFS += --defsym DEV=1
 endif
 
+ifdef TEST_CASE
+ LCDEFS += -DTEST_CASE=$(TEST_CASE)
+ ASMDEFS += --defsym TEST_CASE=$(TEST_CASE)
+endif
+
 ALLOWED_VERSIONS := US EU JP DEBUG USB
 ALLOWED_COUNTRYCODE := u e j
 
@@ -296,6 +301,7 @@ $(BUILD_CONFIG_STAMP): FORCE
 		printf '%s\n' 'IDO_RECOMP=$(IDO_RECOMP)'; \
 		printf '%s\n' 'BOOT_LEVEL=$(BOOT_LEVEL)'; \
 		printf '%s\n' 'DEV=$(DEV)'; \
+		printf '%s\n' 'TEST_CASE=$(TEST_CASE)'; \
 		printf '%s\n' 'GCC_OPTIMIZATION=$(GCC_OPTIMIZATION)'; \
 		printf '%s\n' 'OPTIMIZATION=$(OPTIMIZATION)'; \
 		printf '%s\n' 'LCDEFS=$(LCDEFS)'; \

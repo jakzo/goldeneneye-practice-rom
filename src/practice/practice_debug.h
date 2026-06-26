@@ -1,6 +1,9 @@
 #ifndef PRACTICE_DEBUG_H
 #define PRACTICE_DEBUG_H
 
+#define STATE_DOOR 1
+#define STATE_PICKUP 2
+
 /**
  * Log memory usage stats for all memory pools via practiceLogInfo.
  * Reports MEMPOOL_STAGE, MEMPOOL_PERMANENT, total pool area, and overall

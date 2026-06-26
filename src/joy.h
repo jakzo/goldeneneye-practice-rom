@@ -39,4 +39,10 @@ void joyRumblePakStart(s32 controller, f32 duration);
 void joyRumblePakStop(void);
 void joySetContDataIndex(s32 index);
 
+#ifdef PRACTICE_ROM
+extern u16 g_SimulatedButtons;
+extern u16 g_SimulatedButtonsPressed;
+void joyUpdateSimulatedButtons(void);
+#endif
+
 #endif

@@ -2,12 +2,17 @@
 #include <ultra64.h>
 
 #include "practice/practice_config.h"
+#include "practice_debug.h"
 
 #ifndef BOOT_LEVELID
 #define BOOT_LEVELID LEVELID_TITLE
 #endif
 
-#ifdef DEV
+#if TEST_CASE == STATE_DOOR || TEST_CASE == STATE_PICKUP
+#define BOOT_LEVELID LEVELID_RUNWAY
+#endif
+
+#if defined(DEV) || defined(TEST_CASE)
 #define SKIP_CUTSCENES TRUE
 #else
 #define SKIP_CUTSCENES FALSE
