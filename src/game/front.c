@@ -47,6 +47,7 @@
 #ifdef PRACTICE_ROM
 #include "practice/practice_config.h"
 #include "practice/practice_splits.h"
+#include "practice/practice_debug.h"
 #endif
 
 
@@ -7373,6 +7374,9 @@ void update_menu0A_briefing(void)
 
 void interface_menu0A_briefing(void)
 {
+#ifdef PRACTICE_ROM
+    practice_briefing_menu_tick();
+#endif
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);

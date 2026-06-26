@@ -12,5 +12,6 @@
 void practice_log_memory_usage();
 
 void practice_debug_tick();
+void practice_briefing_menu_tick(void);
 
 #endif /* PRACTICE_DEBUG_H */
