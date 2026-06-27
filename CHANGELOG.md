@@ -1,9 +1,12 @@
 ### Unreleased
 
+# 0.3.0
+
 - Added a splits system
     - Has some initial splits for Runway
 - Fixed bug with sound being disabled for the save on first boot
-- Save state support for doors
+- Save state support for doors and various prop types
+- Switch level/difficulty in menu using L and R triggers
 
 # 0.2.0
 
