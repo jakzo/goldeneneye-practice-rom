@@ -48,6 +48,7 @@ void practice_tests_tick(void) {
       emu_log_write("SAVE_TEST_TRIGGER_LOAD\n");
       load_game_state();
       emu_log_write("SAVE_TEST_LOAD_DONE\n");
+      emu_log_write("TEST_COMPLETE\n");
     }
   }
 #elif TEST_CASE == STATE_PICKUP
@@ -78,6 +79,7 @@ void practice_tests_tick(void) {
       emu_log_write("SAVE_TEST_TRIGGER_LOAD\n");
       load_game_state();
       emu_log_write("SAVE_TEST_LOAD_DONE\n");
+      emu_log_write("TEST_COMPLETE\n");
     }
   }
 #elif TEST_CASE == STATE_BUNKER
@@ -99,6 +101,7 @@ void practice_tests_tick(void) {
       emu_log_write("SAVE_TEST_TRIGGER_LOAD\n");
       load_game_state();
       emu_log_write("SAVE_TEST_LOAD_DONE\n");
+      emu_log_write("TEST_COMPLETE\n");
     }
   }
 #endif
