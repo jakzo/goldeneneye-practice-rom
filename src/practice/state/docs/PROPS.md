@@ -72,7 +72,7 @@ Each `PropRecord` defines its entity type in its `type` field:
 - `PROP_TYPE_WEAPON` (4): Weapon pickups, thrown weapons, and mines in the world (uses `weapon`). Save/load implemented.
 - `PROP_TYPE_PLAYER` (5): Player (uses `chr`).
 - `PROP_TYPE_VIEWER` (6): Multi-player/cutscene viewer (uses `chr`).
-- `PROP_TYPE_EXPLOSION` (7): Explosions (uses `explosion`).
+- `PROP_TYPE_EXPLOSION` (7): Active explosion effects (uses `explosion`). Save/load implemented.
 - `PROP_TYPE_SMOKE` (8): Smoke clouds (uses `smoke`). Save/load implemented.
 
 ---
@@ -428,7 +428,48 @@ typedef struct ChrRecord
 
 ---
 
-### 5. `Smoke` (PROP_TYPE_SMOKE) — Save/load implemented
+### 5. `Explosion` (PROP_TYPE_EXPLOSION) — Save/load implemented
+
+A short-lived explosion effect which expands its damage volume, creates and animates flare sprites, optionally leaves a scorch mark, and eventually creates a smoke prop. Explosion records come from the fixed six-entry `g_ExplosionBuffer`.
+
+```c
+struct ExplosionPart
+{
+    coord3d pos;   /* 0x00 - World position of this flare sprite */
+    f32 size;      /* 0x0C - First axis of the sprite's rotated size vector */
+    f32 rot;       /* 0x10 - Second axis of the sprite's rotated size vector */
+    s16 frame;     /* 0x14 - Flare animation frame; 0 means inactive */
+    u8  bb;        /* 0x16 - Unknown/unused in the current explosion code */
+};
+
+struct Explosion
+{
+    PropRecord          *prop;           /* 0x000 - Back-pointer to the live explosion prop */
+    PropRecord          *source;         /* 0x004 - Prop which originated the explosion, or NULL */
+    struct ExplosionPart parts[40];      /* 0x008 - Independently positioned flare sprites */
+    s16                  age;            /* 0x3C8 - Elapsed explosion updates */
+    s16                  unk3CA;         /* 0x3CA - Next age at which radial damage is applied */
+    s8                   explosion_type; /* 0x3CC - EXPLOSION_DEF index 0-21 */
+    s8                   unk3CD;         /* 0x3CD - Boolean: create a scorch mark at half-life */
+    s8                   player;         /* 0x3CE - Player credited for damage/kills; normally 0-3 */
+    s8                   unk3CF;         /* 0x3CF - Unknown/unused in the current explosion code */
+    coord3d              pos;            /* 0x3D0 - Position used when creating the scorch mark */
+    s16                  room;           /* 0x3DC - Room receiving the scorch mark */
+    s16                  unk3DE;         /* 0x3DE - Unknown/unused in the current explosion code */
+};
+```
+
+`explosion_type` indexes `g_ExplosionTypes`, which defines damage and visual ranges, growth rates, lifetime, flare animation speed, shrapnel, smoke type, sound, and damage. Named values include `EXPLOSION_DEF_DRONE` (12), `EXPLOSION_DEF_STANDARD` (13, grenades and mines), `EXPLOSION_DEF_MASSIVE` (17), `EXPLOSION_DEF_PLAYER` (18), and `EXPLOSION_DEF_FACILITY_REMOTE` (19).
+
+The serializer restores every non-pointer field and all 40 `ExplosionPart` records. `Explosion::prop` is preserved because the fixed buffer entry and live prop already point to each other. `Explosion::source` is serialized as a stable prop-array index and restored only if that prop is still enabled; otherwise it becomes `NULL`, which safely uses the explosion prop as the fallback location when follow-up smoke is created.
+
+The associated `g_NumExplosionEntries` and `g_NumSmokeEntries` counters are also restored. Both normally range from 0 to 6 and control the short camera-shake sequence triggered by an explosion.
+
+As with smoke, an explosion which has completely expired since the save is skipped rather than recreated while prop allocation remains disabled.
+
+---
+
+### 6. `Smoke` (PROP_TYPE_SMOKE) — Save/load implemented
 
 A transient smoke cloud produced by an explosion or by a damaged object. Smoke records come from the fixed 20-entry `g_SmokeBuffer`; the associated prop points to its buffer entry and supplies the cloud's world position and rooms.
 

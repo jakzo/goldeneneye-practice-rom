@@ -30,6 +30,7 @@ Read through this entire document and implement a prop type into the save/load s
 - Document their purpose, possible values, etc. in the docs files the same way as the existing fields using the same format, and move them out of the TODO section
 - Tell me what to do in the game to test that it works and doesn't crash/hang
 - No need to update the changelog or SAVE_STATE_VERSION
+- Right now the code only restores state to existing active props, but eventually once the code supports all types it will replace all props with the restored ones, so if you assume things based on this (like a pointer to a prop being correct already since we only restore to active props) then document it with a TODO comment explaining that it must be updated once that assumption is incorrect and we could remove existing props or add a new prop when loading state
 
 ## Key Learnings
 

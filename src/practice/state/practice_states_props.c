@@ -417,6 +417,38 @@ static void load_door_record(StateStream *stream, DoorRecord *door) {
   door->lastcalc60i = read_u32(stream);
 }
 
+static void save_explosion_record(StateStream *stream,
+                                  struct Explosion *explosion) {
+  write_u16(stream, get_prop_index(explosion->source));
+  write_bytes(stream, explosion->parts, sizeof(explosion->parts));
+  write_u16(stream, explosion->age);
+  write_u16(stream, explosion->unk3CA);
+  write_u8(stream, explosion->explosion_type);
+  write_u8(stream, explosion->unk3CD);
+  write_u8(stream, explosion->player);
+  write_u8(stream, explosion->unk3CF);
+  write_bytes(stream, &explosion->pos, sizeof(explosion->pos));
+  write_u16(stream, explosion->room);
+  write_u16(stream, explosion->unk3DE);
+}
+
+static void load_explosion_record(StateStream *stream,
+                                  struct Explosion *explosion) {
+  s16 source_index = read_u16(stream);
+
+  explosion->source = get_enabled_prop_by_index(source_index);
+  read_bytes(stream, explosion->parts, sizeof(explosion->parts));
+  explosion->age = read_u16(stream);
+  explosion->unk3CA = read_u16(stream);
+  explosion->explosion_type = read_u8(stream);
+  explosion->unk3CD = read_u8(stream);
+  explosion->player = read_u8(stream);
+  explosion->unk3CF = read_u8(stream);
+  read_bytes(stream, &explosion->pos, sizeof(explosion->pos));
+  explosion->room = read_u16(stream);
+  explosion->unk3DE = read_u16(stream);
+}
+
 static void save_smoke_record(StateStream *stream, struct Smoke *smoke) {
   write_u16(stream, smoke->duration);
   write_u16(stream, smoke->smoke_type);
@@ -640,6 +672,9 @@ static void skip_prop_data(StateStream *stream, u8 type) {
     if (load_object_base(stream, &temp_obj.base, NULL)) {
       load_object_subtype(stream, &temp_obj.base);
     }
+  } else if (type == PROP_TYPE_EXPLOSION) {
+    struct Explosion temp_explosion;
+    load_explosion_record(stream, &temp_explosion);
   } else if (type == PROP_TYPE_SMOKE) {
     struct Smoke temp_smoke;
     load_smoke_record(stream, &temp_smoke);
@@ -663,6 +698,9 @@ bool save_props_state(StateStream *stream) {
   write_u16(stream, get_prop_index(ptr_obj_pos_list_final_entry));
 
   dataStart = stream->base_address + stream->total_processed;
+
+  write_u32(stream, g_NumExplosionEntries);
+  write_u32(stream, g_NumSmokeEntries);
 
   /* Save active projectiles. */
   {
@@ -978,11 +1016,16 @@ bool save_props_state(StateStream *stream) {
       }
       break;
 
+    case PROP_TYPE_EXPLOSION:
+      if (prop->explosion != NULL) {
+        save_explosion_record(stream, prop->explosion);
+      }
+      break;
+
     case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
     case PROP_TYPE_PLAYER:
     case PROP_TYPE_VIEWER:
-    case PROP_TYPE_EXPLOSION:
     default:
       break;
     }
@@ -1021,6 +1064,9 @@ bool load_props_state(StateStream *stream) {
   s16 indexOfFinalEntry = read_u16(stream);
 
   dataStart = stream->base_address + stream->total_processed;
+
+  g_NumExplosionEntries = read_u32(stream);
+  g_NumSmokeEntries = read_u32(stream);
 
   /* Clear and restore active projectiles. */
   for (pi = 0; pi < PROJECTILES_ARR_MAX; pi++) {
@@ -1134,11 +1180,14 @@ bool load_props_state(StateStream *stream) {
     case PROP_TYPE_SMOKE:
       supportedType = prop->smoke != NULL && prop->smoke->prop == prop;
       break;
+    case PROP_TYPE_EXPLOSION:
+      supportedType =
+          prop->explosion != NULL && prop->explosion->prop == prop;
+      break;
     case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
     case PROP_TYPE_PLAYER:
     case PROP_TYPE_VIEWER:
-    case PROP_TYPE_EXPLOSION:
     case PROP_TYPE_MAX:
       supportedType = FALSE;
       break;
@@ -1254,6 +1303,9 @@ bool load_props_state(StateStream *stream) {
     }
 
     case PROP_TYPE_SMOKE:
+      // TODO: When loading can add or replace props, allocate/select the saved
+      // smoke buffer entry and set both prop->smoke and smoke->prop instead of
+      // assuming the existing active prop already has the correct backlink.
       if (prop->smoke == NULL || prop->smoke->prop != prop) {
         struct Smoke temp_smoke;
         load_smoke_record(stream, &temp_smoke);
@@ -1262,11 +1314,22 @@ bool load_props_state(StateStream *stream) {
       }
       break;
 
+    case PROP_TYPE_EXPLOSION:
+      // TODO: When loading can add or replace props, allocate/select the saved
+      // explosion buffer entry and set both prop->explosion and explosion->prop
+      // instead of assuming the existing active prop has the correct backlink.
+      if (prop->explosion == NULL || prop->explosion->prop != prop) {
+        struct Explosion temp_explosion;
+        load_explosion_record(stream, &temp_explosion);
+      } else {
+        load_explosion_record(stream, prop->explosion);
+      }
+      break;
+
     case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
     case PROP_TYPE_PLAYER:
     case PROP_TYPE_VIEWER:
-    case PROP_TYPE_EXPLOSION:
     default:
       break;
     }
