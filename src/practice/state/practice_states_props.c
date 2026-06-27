@@ -1023,14 +1023,27 @@ bool save_props_state(StateStream *stream) {
       break;
 
     case PROP_TYPE_NUL:
+      practiceLogDebug(
+          "INVARIANT VIOLATION: Enabled PROP_TYPE_NUL at prop index %d", i);
+      break;
     case PROP_TYPE_CHR:
+      break;
     case PROP_TYPE_PLAYER:
+      practiceLogDebug(
+          "INVARIANT VIOLATION: Enabled PROP_TYPE_PLAYER at prop index %d", i);
+      break;
     case PROP_TYPE_VIEWER:
     default:
       break;
     }
 
     recordCount++;
+  }
+
+  // Player payloads follow all prop records so they can safely refer to any
+  // restored prop, regardless of prop array order.
+  if (!save_viewer_players_state(stream)) {
+    return FALSE;
   }
 
   /* Patch the props header with the real size and record count. */
@@ -1181,19 +1194,24 @@ bool load_props_state(StateStream *stream) {
       supportedType = prop->smoke != NULL && prop->smoke->prop == prop;
       break;
     case PROP_TYPE_EXPLOSION:
-      supportedType =
-          prop->explosion != NULL && prop->explosion->prop == prop;
+      supportedType = prop->explosion != NULL && prop->explosion->prop == prop;
+      break;
+    case PROP_TYPE_VIEWER:
+      supportedType = TRUE;
       break;
     case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
     case PROP_TYPE_PLAYER:
-    case PROP_TYPE_VIEWER:
     case PROP_TYPE_MAX:
       supportedType = FALSE;
       break;
     }
 
     if (ADD_AND_REMOVE_PROPS || supportedType) {
+      if (savedPropType == PROP_TYPE_VIEWER) {
+        chrpropDeregisterRooms(prop);
+      }
+
       prop->type = savedPropType;
       prop->flags = savedPropFlags;
       prop->timetoregen = savedPropTimetoregen;
@@ -1211,6 +1229,10 @@ bool load_props_state(StateStream *stream) {
       prop->rooms[2] = savedPropRooms[2];
       prop->rooms[3] = savedPropRooms[3];
       prop->unk30 = savedPropUnk30;
+
+      if (savedPropType == PROP_TYPE_VIEWER) {
+        chrpropRegisterRooms(prop);
+      }
     }
 
     switch ((PROP_TYPE)savedPropType) {
@@ -1329,6 +1351,7 @@ bool load_props_state(StateStream *stream) {
     case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
     case PROP_TYPE_PLAYER:
+    // Viewer state loaded after rest of props
     case PROP_TYPE_VIEWER:
     default:
       break;
@@ -1367,6 +1390,10 @@ bool load_props_state(StateStream *stream) {
     ptr_obj_pos_list_first_entry = get_prop_by_index(indexOfFirstEntry);
     ptr_obj_pos_list_current_entry = get_prop_by_index(indexOfCurrentEntry);
     ptr_obj_pos_list_final_entry = get_prop_by_index(indexOfFinalEntry);
+  }
+
+  if (!load_viewer_players_state(stream)) {
+    return FALSE;
   }
 
   return TRUE;

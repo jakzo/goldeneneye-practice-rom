@@ -41,10 +41,7 @@ void save_game_state(void) {
   /* 2. Write globals. */
   save_global_state(&stream.base);
 
-  /* 3. Write bond state. */
-  save_bond_state(&stream.base);
-
-  /* 4. Write props state. */
+  /* 3. Write props and their associated player state. */
   if (!save_props_state(&stream.base)) {
     practiceLogWarn("Failed to save state");
     return;
@@ -53,7 +50,7 @@ void save_game_state(void) {
   /* Flush the remaining bytes in the buffer to SRAM. */
   stream_flush(&stream.base);
 
-  /* 5. Patch the header size field in g_SavedHeader. */
+  /* 4. Patch the header size field in g_SavedHeader. */
   g_SavedHeader.magic = SAVE_STATE_MAGIC;
   g_SavedHeader.version = SAVE_STATE_VERSION;
   g_SavedHeader.level_id = g_CurrentStageToLoad;
@@ -105,15 +102,18 @@ void load_game_state(void) {
   /* 1. Skip header (already validated from g_SavedHeader). */
   stream_seek(&stream.base, SAVE_STATE_SRAM_OFFSET + sizeof(SaveStateHeader));
 
-  /* 2. Load globals. */
-  load_global_state(&stream.base);
+  /* 2. Load scalar globals and cache prop-dependent global references. */
+  load_global_state_pre_props(&stream.base);
 
-  /* 3. Load bond state. */
-  load_bond_state(&stream.base);
-
-  /* 4. Load props state. */
+  /* 3. Load props, followed by their associated player state. */
   if (!load_props_state(&stream.base)) {
     practiceLogWarn("Failed to load state");
+    return;
+  }
+
+  /* 4. Resolve prop-dependent globals and restore the current player. */
+  if (!load_global_state_post_props()) {
+    practiceLogWarn("Failed to restore post-prop globals");
     return;
   }
 

@@ -20,7 +20,7 @@
  * - Modifying the size or layout of fields in the middle of the save state
  * (which alters offsets of all subsequent fields).
  */
-#define SAVE_STATE_VERSION 4
+#define SAVE_STATE_VERSION 5
 #define SAVE_STATE_SRAM_OFFSET 0x200
 
 typedef struct {
@@ -31,9 +31,10 @@ typedef struct {
 } SaveStateHeader;
 
 void save_global_state(StateStream *stream);
-void load_global_state(StateStream *stream);
-void save_bond_state(StateStream *stream);
-void load_bond_state(StateStream *stream);
+void load_global_state_pre_props(StateStream *stream);
+bool load_global_state_post_props(void);
+bool save_viewer_players_state(StateStream *stream);
+bool load_viewer_players_state(StateStream *stream);
 bool save_props_state(StateStream *stream);
 bool load_props_state(StateStream *stream);
 

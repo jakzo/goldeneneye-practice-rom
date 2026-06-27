@@ -3,8 +3,10 @@
 #include "chrai.h"
 #include "objecthandler.h"
 #include "player.h"
+#include "player_2.h"
 #include "practice_states.h"
 #include "practice_states_utils.h"
+#include "practice_ui.h"
 #include "watch.h"
 #include <bondconstants.h>
 #include <bondgame.h>
@@ -77,7 +79,7 @@ static void load_player_state_direct(StateStream *stream, struct player *dst) {
   dst->textoverrides = backup_textoverrides;
 }
 
-void save_bond_state(StateStream *stream) {
+static void save_current_player_state(StateStream *stream) {
   if (g_CurrentPlayer == NULL) {
     return;
   }
@@ -153,7 +155,7 @@ void save_bond_state(StateStream *stream) {
   }
 }
 
-void load_bond_state(StateStream *stream) {
+static void load_current_player_state(StateStream *stream) {
   s32 preload_hand_item[2];
   textoverride *live_textoverrides;
 
@@ -347,4 +349,87 @@ void load_bond_state(StateStream *stream) {
       }
     }
   }
+}
+
+bool save_viewer_players_state(StateStream *stream) {
+  s32 original_player = get_cur_playernum();
+  s32 player_count = getPlayerCount();
+  s32 saved_count = 0;
+  s32 i;
+
+  for (i = 0; i < player_count; i++) {
+    if (g_playerPointers[i] != NULL) {
+      saved_count++;
+    }
+  }
+
+  write_u8(stream, saved_count);
+
+  for (i = 0; i < player_count; i++) {
+    struct player *player = g_playerPointers[i];
+    s16 viewer_prop_index;
+
+    if (player == NULL) {
+      continue;
+    }
+
+    viewer_prop_index = get_prop_index(player->prop);
+    if (player->prop != NULL && player->prop->type != PROP_TYPE_VIEWER) {
+      practiceLogWarn("Player %d has non-viewer prop type %d", i,
+                      player->prop->type);
+      set_cur_player(original_player);
+      return FALSE;
+    }
+
+    write_u8(stream, i);
+    write_u16(stream, viewer_prop_index);
+
+    set_cur_player(i);
+    save_current_player_state(stream);
+  }
+
+  set_cur_player(original_player);
+  return TRUE;
+}
+
+bool load_viewer_players_state(StateStream *stream) {
+  s32 live_player_count = getPlayerCount();
+  s32 saved_count = read_u8(stream);
+  s32 i;
+
+  for (i = 0; i < saved_count; i++) {
+    s32 player_index = read_u8(stream);
+    s16 viewer_prop_index = (s16)read_u16(stream);
+    PropRecord *viewer_prop = NULL;
+
+    if (player_index < 0 || player_index >= live_player_count ||
+        g_playerPointers[player_index] == NULL) {
+      practiceLogWarn("Invalid saved player index %d", player_index);
+      return FALSE;
+    }
+
+    if (viewer_prop_index >= 0) {
+      viewer_prop = get_enabled_prop_by_index(viewer_prop_index);
+      if (viewer_prop != NULL && viewer_prop->type != PROP_TYPE_VIEWER) {
+        practiceLogWarn("Player %d prop %d has unexpected type %d",
+                        player_index, viewer_prop_index, viewer_prop->type);
+        return FALSE;
+      }
+
+      /*
+       * While prop addition/removal is disabled, a saved viewer can be absent
+       * when loading from a cutscene. Leave the live pointer in place so the
+       * player loader can update it or allocate a replacement from its saved
+       * position data.
+       */
+      if (viewer_prop != NULL) {
+        g_playerPointers[player_index]->prop = viewer_prop;
+      }
+    }
+
+    set_cur_player(player_index);
+    load_current_player_state(stream);
+  }
+
+  return TRUE;
 }

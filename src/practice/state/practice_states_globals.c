@@ -1,6 +1,9 @@
 #include "practice_states_globals.h"
 #include "bondview.h"
+#include "player.h"
+#include "player_2.h"
 #include "practice_states_utils.h"
+#include "practice_ui.h"
 #include <ultra64.h>
 
 #define BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH 0x65
@@ -13,6 +16,12 @@ extern s32 g_GlobalTimer;
 extern s32 mission_timer;
 extern u64 g_randomSeed;
 extern u64 g_chrObjRandomSeed;
+
+static s32 saved_player_tank_prop_index;
+static s32 saved_world_tank_prop_index;
+static s32 saved_current_player_index;
+static u64 saved_random_seed;
+static u64 saved_chr_obj_random_seed;
 
 #if defined(VERSION_JP) || defined(VERSION_EU)
 extern s32 dword_CODE_bss_jp80079CEC[0x05];
@@ -74,9 +83,10 @@ void save_global_state(StateStream *stream) {
   write_u32(stream, mission_timer);
   write_bytes(stream, &g_randomSeed, sizeof(g_randomSeed));
   write_bytes(stream, &g_chrObjRandomSeed, sizeof(g_chrObjRandomSeed));
+  write_u32(stream, get_cur_playernum());
 }
 
-void load_global_state(StateStream *stream) {
+void load_global_state_pre_props(StateStream *stream) {
   // HUD
   status_bar_text_buffer_index = read_u32(stream);
   display_statusbar = read_u32(stream);
@@ -95,8 +105,8 @@ void load_global_state(StateStream *stream) {
 
   // Tank
   in_tank_flag = read_u32(stream);
-  g_PlayerTankProp = get_enabled_prop_by_index(read_u32(stream));
-  g_WorldTankProp = get_enabled_prop_by_index(read_u32(stream));
+  saved_player_tank_prop_index = read_u32(stream);
+  saved_world_tank_prop_index = read_u32(stream);
   g_PlayerTankYOffset = read_f32(stream);
   g_TankTurnSpeed = read_f32(stream);
   g_TankOrientationAngle = read_f32(stream);
@@ -126,8 +136,35 @@ void load_global_state(StateStream *stream) {
   // Values
   g_GlobalTimer = read_u32(stream);
   mission_timer = read_u32(stream);
-  // TODO: Either restore RNG state after props or stop restoration of prop
-  // state from consuming RNG (ideally this)
-  read_bytes(stream, &g_randomSeed, sizeof(g_randomSeed));
-  read_bytes(stream, &g_chrObjRandomSeed, sizeof(g_chrObjRandomSeed));
+  read_bytes(stream, &saved_random_seed, sizeof(saved_random_seed));
+  read_bytes(stream, &saved_chr_obj_random_seed,
+             sizeof(saved_chr_obj_random_seed));
+  saved_current_player_index = read_u32(stream);
+
+  // TODO: We should save the RNG state needed for restoring each prop
+  // individually but for now just use the final RNG state when restoring props
+  g_randomSeed = saved_random_seed;
+  g_chrObjRandomSeed = saved_chr_obj_random_seed;
+}
+
+bool load_global_state_post_props(void) {
+  if (saved_current_player_index < 0 ||
+      saved_current_player_index >= getPlayerCount() ||
+      g_playerPointers[saved_current_player_index] == NULL) {
+    practiceLogWarn("Invalid saved current player index %d",
+                    saved_current_player_index);
+    return FALSE;
+  }
+
+  g_PlayerTankProp = get_enabled_prop_by_index(saved_player_tank_prop_index);
+  g_WorldTankProp = get_enabled_prop_by_index(saved_world_tank_prop_index);
+
+  set_cur_player(saved_current_player_index);
+
+  // Prop and player restoration can consume randomness. Apply the saved RNG
+  // state last so the next gameplay tick resumes the saved sequence.
+  g_randomSeed = saved_random_seed;
+  g_chrObjRandomSeed = saved_chr_obj_random_seed;
+
+  return TRUE;
 }
