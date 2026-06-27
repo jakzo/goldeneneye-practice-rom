@@ -98,6 +98,7 @@
       build/OUTCODE/src/practice/practice_config.o (.bss);
       build/OUTCODE/src/practice/practice_hotkeys.o (.bss);
       build/OUTCODE/src/practice/practice_debug.o (.bss);
+      build/OUTCODE/src/practice/practice_tests.o (.bss);
       build/OUTCODE/src/practice/practice_timescale.o (.bss);
       build/OUTCODE/src/practice/practice_ui.o (.bss);
       build/OUTCODE/src/practice/practice_unlock.o (.bss);

@@ -9,7 +9,7 @@
 #include <str.h>
 #include <watch.h>
 #include "../practice/emu_log.h"
-#include "../practice/practice_debug.h"
+#include "../practice/practice_tests.h"
 #include "bg.h"
 #include "bondview.h"
 #include "bondinv.h"
@@ -11747,7 +11747,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         }
 
 #ifdef PRACTICE_ROM
-        practice_debug_tick();
+        practice_tests_tick();
 #endif
 
         MoveBond(stick_x, stick_y, buttons, (u16) g_CurrentPlayer->buttons_pressed);
@@ -20486,7 +20486,6 @@ void SurroundWithExplosions(int delay)
     g_SurroundBondWithExplosionsTicks = delay + g_GlobalTimer;
     g_PlayerTickExplodeCreatePosition = 0;
 }
-
 
 
 

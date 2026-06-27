@@ -102,17 +102,19 @@ When adding a new `.c` file, Makefile will automatically pick it up but it must 
 
 ## Debugging
 
-1. Build the ROM with debug symbols:
-    - `just make` (`make-dev` build currently broken)
-2. Start the ares emulator
-    - `/Applications/ares.app/Contents/MacOS/ares ./build/u/ge007.u.z64`
-    - This will start a GDB server on localhost:9123 which you can connect to while the emulator is running
-    - You can set the emulator to start at a certain level and skip the intro then trigger things to happen n frames after load in practice_debug.c
-    - You typically need to run the emulator for up to 10 seconds before the level loads and longer for whatever you want to trigger
-    - You can use the `emu_log` function to log things to the emulator's STDOUT
+1. Run the test case:
+    - `just test TEST_CASE_NAME`
+    - See practice_debug.c for the implementation of each test case
+2. View logs
+    - This will start the ares emulator and immediately do some action in a level
+    - The test will emit logs to the emulator's STDOUT which you can use to see how far the test got and whether it succeeded or hung
+    - It will also start a GDB server on localhost:9123 which you can connect to while the emulator is running
+    - The emulator takes about 5 seconds to boot up and another 5 seconds to run the test case (depending on its implementation)
+    - If needed you can use the `emu_log` function to log things to the emulator's STDOUT
     - If you stop this command the emulator will quit!
     - If you do run the emulator in the background remember to kill it later
 3. Use the GDB MCP tools to connect
     - See the settings in `.vscode/launch.json` for how to connect
-    - Note that the IDO compiler is old and does NOT produce debug symbols so only function breakpoints (not lines) work (except for the newly added src/practice files which are compiled using GCC)
-    - You will also not be able to see variables and must look at the memory address pointed to by pointer arguments in the CPU registers
+    - Note that the IDO compiler is old and does NOT produce debug symbols so only function breakpoints (not lines) work
+    - You will also not be able to see variables and must look at the memory address pointed to by pointer arguments in the CPU registers if debugging game (not practice) code
+    - However the newly added code in the src/practice files are compiled using GCC and DO have proper debug symbols so breaking and viewing variables there does work

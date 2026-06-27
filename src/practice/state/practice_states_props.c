@@ -18,7 +18,6 @@ extern void door7F052B00(DoorRecord *door);
 extern void sub_GAME_7F052D8C(DoorRecord *door);
 extern union ModelRwData *modelGetNodeRwData(Model *Objinst, ModelNode *root);
 extern void sub_GAME_7F050DE8(Model *model);
-extern void sub_GAME_7F06EFC4(Model *model);
 extern void objDeform(ObjectRecord *obj, s32 arg1);
 extern PathRecord *pathFindById(s32 ID);
 extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
@@ -251,8 +250,7 @@ static bool load_object_base(StateStream *stream, ObjectRecord *obj,
     obj->embedment = NULL;
   }
 
-  // Apply model switch states
-  if (obj->model != NULL && obj->model->obj != NULL) {
+  if (prop != NULL && obj->model != NULL && obj->model->obj != NULL) {
     s32 i;
     s32 numSw = obj->model->obj->numSwitches;
     if (numSw > 32) {
@@ -268,12 +266,14 @@ static bool load_object_base(StateStream *stream, ObjectRecord *obj,
         }
       }
     }
-    sub_GAME_7F06EFC4(obj->model);
+    sub_GAME_7F050DE8(obj->model);
   }
 
-  destroyedLvl = objGetDestroyedLevel(obj);
-  if (destroyedLvl > 0) {
-    objDeform(obj, destroyedLvl);
+  if (prop != NULL) {
+    destroyedLvl = objGetDestroyedLevel(obj);
+    if (destroyedLvl > 0) {
+      objDeform(obj, destroyedLvl);
+    }
   }
 
   return TRUE;
