@@ -1,10 +1,10 @@
-## 1. Project Overview
+## Project Overview
 
 This repository contains a custom ROM for the N64 game **GoldenEye 007** with various utilities for practicing speedruns. It is a fork of a work-in-progress, byte-matching decompilation of the original N64 game. It compiles C source files and assembly files back into `.z64` ROM binaries.
 
 ---
 
-## 2. Directory Structure
+## Directory Structure
 
 Below is the high-level layout of the repository and where components are located:
 
@@ -28,7 +28,7 @@ goldeneye_src
 
 ---
 
-## 3. Build Commands
+## Build Commands
 
 All builds must be run inside Docker since the host environment is macOS. Use the `goldeneye` Docker image to compile the ROMs.
 
@@ -56,7 +56,7 @@ You can configure Makefile behavior by passing the following flags (e.g., `make 
 
 ---
 
-## 4. Guide to Key Source Files
+## Guide to Key Source Files
 
 When tasked with modification or analysis of gameplay, look here first:
 
@@ -77,7 +77,7 @@ All new logic for the practice ROM is stored in the files under `src/practice`. 
 
 ---
 
-## 5. Assembly & C Integration (GLOBAL_ASM)
+## Assembly & C Integration (GLOBAL_ASM)
 
 The codebase heavily utilizes standard decompilation patterns to bridge C with yet-unmatched assembly code.
 
@@ -89,18 +89,7 @@ The codebase heavily utilizes standard decompilation patterns to bridge C with y
 
 ---
 
-## 6. Adding New Source Files
-
-When adding a new `.c` file, Makefile will automatically pick it up but it must be added manually to the linker scripts at:
-
-- `ld/game.text.ld.inc`
-- `ld/game.data.ld.inc`
-- `ld/game.bss.ld.inc`
-- `ld/game.rodata.ld.inc`
-
----
-
-## Debugging
+## Debugging and verification
 
 1. Run the test case:
     - `just test TEST_CASE_NAME`
@@ -113,7 +102,7 @@ When adding a new `.c` file, Makefile will automatically pick it up but it must 
     - If needed you can use the `emu_log` function to log things to the emulator's STDOUT
     - If you stop this command the emulator will quit!
     - If you do run the emulator in the background remember to kill it later
-3. Use the GDB MCP tools to connect
+3. If needed use the GDB MCP tools to connect
     - See the settings in `.vscode/launch.json` for how to connect
     - Note that the IDO compiler is old and does NOT produce debug symbols so only function breakpoints (not lines) work
     - You will also not be able to see variables and must look at the memory address pointed to by pointer arguments in the CPU registers if debugging game (not practice) code

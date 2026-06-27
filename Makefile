@@ -159,8 +159,9 @@ RSPOBJECTS := $(foreach file,$(RSPCODE),$(BUILD_DIR)/$(file:.s=.bin))
 CODEFILES := $(foreach dir,src,$(wildcard $(dir)/*.c))
 CODEOBJECTS := $(foreach file,$(CODEFILES),$(BUILD_DIR)/$(file:.c=.o))
 
-PRACTICEFILES_C := $(foreach dir,src/practice src/practice/state,$(wildcard $(dir)/*.c))
+PRACTICEFILES_C := $(sort $(shell find src/practice -type f -name '*.c'))
 PRACTICEOBJECTS := $(foreach file,$(PRACTICEFILES_C),$(BUILD_DIR)/$(file:.c=.o))
+PRACTICE_LINK_OBJECT := $(BUILD_DIR)/src/practice.o
 
 GAMEFILES_C := $(foreach dir,src/game,$(wildcard $(dir)/*.c))
 GAMEFILES_S := $(foreach dir,src/game,$(wildcard $(dir)/*.s))
@@ -267,7 +268,7 @@ BUILD_CONFIG_TMP := $(BUILD_CONFIG_STAMP).tmp
 .SECONDARY:
 	$(APPELF) $(APPROM) $(APPBIN) $(ULTRAOBJECTS) $(BUILD_DIR)/ge007.$(OUTCODE).map \
 	$(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) \
-	$(OBSEG_OBJECTS) $(OBSEG_RZ) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_RZ_FILES) $(PRACTICEOBJECTS)
+	$(OBSEG_OBJECTS) $(OBSEG_RZ) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_RZ_FILES) $(PRACTICEOBJECTS) $(PRACTICE_LINK_OBJECT)
 
 # Dont delete these intermediate targets on make cancelation.
 .PRECIOUS: %.bin  %.o
@@ -345,7 +346,12 @@ $(BUILD_DIR)/$(OBSEGMENT): $(OBSEG_RZ) $(IMAGE_OBJS)
 
 # Build C files in src/practice/ using GCC
 $(BUILD_DIR)/src/practice/%.o: src/practice/%.c
+	@mkdir -p $(@D)
 	$(CC_GCC) -c $(CFLAGS_GCC) -o $@ $<
+
+# Combine practice objects so the linker script does not need to know their directory depth.
+$(PRACTICE_LINK_OBJECT): $(PRACTICEOBJECTS)
+	$(LD) -r -o $@ $^
 
 
 #Build C files in src/
@@ -392,10 +398,10 @@ endif
 #	$(CC) -c -Wab,-r4300_mul -non_shared -G 0 -Xcpluscomm $(CFLAGWARNING) -woff 819,820,852,821,838,649 -signed $(INCLUDE) $(MIPSISET) $(LCDEFS) -DTARGET_N64 $(OPTIMIZATION) -o $@ $<
 
 #Link Files
-$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_RZ) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_RZ_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) $(PRACTICEOBJECTS) ge007.ld
+$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_RZ) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_RZ_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) $(PRACTICE_LINK_OBJECT) ge007.ld
 	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/ge007.$(OUTCODE).ld
 	@echo "Linking Files into ELF"
-	$(LD) $(LDFLAGS) -o $@ $(LIBGCC)
+	$(LD) $(LDFLAGS) -o $@ $(PRACTICE_LINK_OBJECT) $(LIBGCC)
 
 $(APPBIN): $(APPELF)
 	@echo "Building ROM"
@@ -448,7 +454,7 @@ libultraclean: commonclean
 	rm -f $(ULTRAOBJECTS)
 
 codeclean: commonclean libultraclean
-	rm -f $(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(RSPOBJECTS) $(PRACTICEOBJECTS)
+	rm -f $(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(RSPOBJECTS) $(PRACTICEOBJECTS) $(PRACTICE_LINK_OBJECT)
 
 clean: codeclean dataclean
 	@echo "\nAll Code and Asset Binaries Cleared! Make will Re-Build these next time.\n"
