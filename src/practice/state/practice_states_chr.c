@@ -10,13 +10,25 @@ extern PathRecord *pathFindById(s32 ID);
 
 static bool is_supported_action(ACT_TYPE actiontype) {
   switch (actiontype) {
+  case ACT_INIT:
   case ACT_STAND:
+  case ACT_KNEEL:
+  case ACT_ANIM:
   case ACT_SIDESTEP:
   case ACT_JUMPOUT:
   case ACT_RUNPOS:
   case ACT_PATROL:
   case ACT_GOPOS:
+  case ACT_SURRENDER:
+  case ACT_LOOKATTARGET:
   case ACT_SURPRISED:
+  case ACT_STARTALARM:
+  case ACT_THROWGRENADE:
+  case ACT_TURNDIR:
+  case ACT_TEST:
+  case ACT_BONDINTRO:
+  case ACT_BONDDIE:
+  case ACT_NULL:
     return TRUE;
   default:
     return FALSE;
@@ -107,6 +119,14 @@ static void save_supported_action(StateStream *stream, const ChrRecord *chr) {
     write_u32(stream, chr->act_stand.checkfacingwall);
     write_u32(stream, chr->act_stand.wallcount);
     break;
+  case ACT_ANIM:
+    write_u8(stream, chr->act_anim.unk02c != 0);
+    write_u8(stream, chr->act_anim.holdLastFrame != 0);
+    write_u8(stream, chr->act_anim.playSfx != 0);
+    write_u8(stream, chr->act_anim.idleOnEnd != 0);
+    write_u8(stream, chr->act_anim.noTranslate != 0);
+    write_u8(stream, (chr->chrflags & CHRFLAG_02000000) != 0);
+    break;
   case ACT_RUNPOS:
     write_bytes(stream, &chr->act_runpos.pos, sizeof(coord3d));
     write_f32(stream, chr->act_runpos.neardist);
@@ -136,7 +156,8 @@ static void save_supported_action(StateStream *stream, const ChrRecord *chr) {
     write_f32(stream, chr->act_gopos.speed);
     break;
   default:
-    // Sidestep, jumpout, and surprised are driven entirely by Model state.
+    // Payload-free actions are driven entirely by their discriminator, Model
+    // state, and (where applicable) restored equipment attachments.
     break;
   }
 }
@@ -167,6 +188,28 @@ static void load_supported_action(StateStream *stream, ChrRecord *chr) {
       chr->act_stand.turning = turning;
       chr->act_stand.checkfacingwall = checkfacingwall;
       chr->act_stand.wallcount = wallcount;
+    }
+    break;
+  }
+  case ACT_ANIM: {
+    u32 unk02c = read_u8(stream);
+    u32 holdLastFrame = read_u8(stream);
+    u32 playSfx = read_u8(stream);
+    u32 idleOnEnd = read_u8(stream);
+    u32 noTranslate = read_u8(stream);
+    bool sfxPlayed = read_u8(stream);
+
+    if (chr != NULL) {
+      chr->act_anim.unk02c = unk02c;
+      chr->act_anim.holdLastFrame = holdLastFrame;
+      chr->act_anim.playSfx = playSfx;
+      chr->act_anim.idleOnEnd = idleOnEnd;
+      chr->act_anim.noTranslate = noTranslate;
+      if (sfxPlayed) {
+        chr->chrflags |= CHRFLAG_02000000;
+      } else {
+        chr->chrflags &= ~CHRFLAG_02000000;
+      }
     }
     break;
   }

@@ -343,11 +343,13 @@ Model play-speed state;      /* Current/target play rate and interpolation clock
 Model root RW data;          /* Pointer-free animation translation/heading state. */
 ```
 
-The supported discriminators are `ACT_STAND`, `ACT_SIDESTEP`, `ACT_JUMPOUT`,
-`ACT_RUNPOS`, `ACT_SURPRISED`, `ACT_PATROL`, and `ACT_GOPOS`. Saving any other action
-writes no action/model payload, and loading it leaves the destination action
-live; its union cannot safely be interpreted until the corresponding batch is
-implemented.
+The supported discriminators are `ACT_INIT`, `ACT_STAND`, `ACT_KNEEL`,
+`ACT_ANIM`, `ACT_SIDESTEP`, `ACT_JUMPOUT`, `ACT_RUNPOS`, `ACT_PATROL`, `ACT_GOPOS`,
+`ACT_SURRENDER`, `ACT_LOOKATTARGET`, `ACT_SURPRISED`, `ACT_STARTALARM`,
+`ACT_THROWGRENADE`, `ACT_TURNDIR`, `ACT_TEST`, `ACT_BONDINTRO`, `ACT_BONDDIE`,
+and `ACT_NULL`. Saving any other action writes no action/model payload, and
+loading it leaves the destination action live; its union cannot safely be
+interpreted until the corresponding batch is implemented.
 
 The action records occupy one 120-byte union. The payload does not copy those
 120 bytes wholesale: doing so would waste substantial SRAM per CHR and would
@@ -488,18 +490,16 @@ struct act_null         { int padding[30]; };
 ```
 
 These declarations reserve the full union size but do not describe distinct
-fields for the named action. Their behavior is selected by `actiontype` and,
-where applicable, the current `Model` animation. The decompilation sometimes
-accesses known fields through `act_init.padding`: `[0]` aliases the first field
+fields for the named action. No GoldenEye setter or tick function reads or
+writes union bytes while any of these discriminators is active, so they are
+implemented as payload-free actions.
+
+The decompilation sometimes accesses known fields through `act_init.padding`,
+but only while another typed action is active: `[0]` aliases the first field
 of `act_dead`, `act_die`, and `act_argh`; `[1]` and `[3]` alias
 `act_anim.holdLastFrame` and `idleOnEnd`; and `[0x13]` aliases
 `act_patrol.lastvisible60`. These are alternate views of typed fields, not
-independent padding state.
-
-TODO: Determine whether any remaining bytes have action-specific meaning for
-`ACT_INIT`, `ACT_KNEEL`, `ACT_SURRENDER`, `ACT_LOOKATTARGET`,
-`ACT_STARTALARM`, `ACT_TURNDIR`, `ACT_TEST`, `ACT_BONDINTRO`, or
-`ACT_BONDDIE` before serializing these actions.
+state belonging to `ACT_INIT` or the other marker actions.
 
 ### `act_stand`
 
@@ -541,24 +541,29 @@ animation pointer, frame, speed, loop, and interpolation state.
 
 ```c
 struct act_anim {
-    u32 unk02c;        /* 0x00 - Boolean from ANIM_UNKNOWN (0x01). */
+    u32 unk02c;        /* 0x00 - Boolean from ANIM_UNKNOWN (0x02). */
     u32 holdLastFrame; /* 0x04 - Boolean from ANIM_LOOP_HOLD_LAST_FRAME. */
     u32 playSfx;       /* 0x08 - Boolean from ANIM_PLAY_SFX. */
     u32 idleOnEnd;     /* 0x0c - Boolean from ANIM_IDLE_POSE_WHEN_COMPLETE. */
     u32 noTranslate;   /* 0x10 - Boolean from ANIM_NO_TRANSLATION. */
-    u8  unk040;        /* 0x14 - TODO: determine purpose and values. */
-    u8  unk041;        /* 0x15 - TODO: determine purpose and values. */
-    u16 unk042;        /* 0x16 - TODO: determine purpose and values. */
-    u16 unk044;        /* 0x18 - TODO: determine purpose and values. */
-    u16 unk046;        /* 0x1a - TODO: determine purpose and values. */
-    s16 animnum;       /* 0x1c - Animation-table index. */
-    u8  flip;          /* 0x1e - Boolean: mirror the animation. */
-    f32 startframe;    /* 0x20 - First animation frame. */
-    f32 endframe;      /* 0x24 - Last animation frame; negative means default end. */
-    f32 unk054;        /* 0x28 - TODO: determine purpose and values. */
-    f32 unk058;        /* 0x2c - TODO: determine purpose and values. */
+    u8  unk040;        /* 0x14 - Inactive/uninitialized in GoldenEye. */
+    u8  unk041;        /* 0x15 - Inactive/uninitialized in GoldenEye. */
+    u16 unk042;        /* 0x16 - Inactive/uninitialized in GoldenEye. */
+    u16 unk044;        /* 0x18 - Inactive/uninitialized in GoldenEye. */
+    u16 unk046;        /* 0x1a - Inactive/uninitialized in GoldenEye. */
+    s16 animnum;       /* 0x1c - Inactive/uninitialized in GoldenEye. */
+    u8  flip;          /* 0x1e - Inactive/uninitialized in GoldenEye. */
+    f32 startframe;    /* 0x20 - Inactive/uninitialized in GoldenEye. */
+    f32 endframe;      /* 0x24 - Inactive/uninitialized in GoldenEye. */
+    f32 unk054;        /* 0x28 - Inactive/uninitialized in GoldenEye. */
+    f32 unk058;        /* 0x2c - Inactive/uninitialized in GoldenEye. */
 };
 ```
+
+GoldenEye initializes only the first five Boolean members. The apparent
+animation identity, frame, and flip fields are not read or written by this
+game; the live `Model` owns those values. They are inactive union overlay bytes
+and are deliberately omitted from the save payload.
 
 ### `act_die`
 
@@ -862,6 +867,107 @@ entries are signed 16-bit indices into `g_CurrentSetup.pathwaypoints`; `-1`
 represents `NULL`. These are resolved against the current level for both
 retained and newly allocated CHRs, so no existing pointer is assumed.
 
+The eleventh CHR serialization slice adds grenade-throw actions:
+
+```c
+ChrRecord::actiontype;        /* ACT_THROWGRENADE discriminator. */
+Model animation/controller;   /* Throw identity, frame, speed, flip, and hand. */
+ChrRecord::weapons_held[0..1];/* Existing or recreated grenade attachment. */
+```
+
+`chrlvThrowGrenadeAnimationRelated` changes the action discriminator and starts
+`ANIM_DATA_fire_throw_grenade`, but does not initialize any member of
+`act_throwgrenade`. `chrlvTickThrowGrenade` likewise reads only the live model
+frame and `Model::gunhand`, then resolves the corresponding held weapon through
+`weapons_held`. The action-union payload is therefore empty in GoldenEye; the
+declared members are inactive overlay bytes and are not serialized.
+
+The common model payload restores the exact throw frame, end frame, play speed,
+flip/hand selection, and interpolation state. The equipment slice restores the
+selected grenade prop and its model attachment. In `ADD_AND_REMOVE_PROPS`
+replacement mode, a grenade attachment that does not have a standalone saved
+prop is recreated from its serialized model ID, `ITEM_GRENADE` weapon ID, and
+object flags before the next character tick. This avoids relying on either a
+retained held-prop pointer or an existing character model.
+
+At animation frame 20 the grenade becomes visible, at frame 61 its weapon timer
+is armed, and at frame 119 it is marked dropped and
+`CHRHIDDEN_DROP_HELD_ITEMS` is set. Those effects remain derived transitions:
+loading a frame before a threshold lets the tick perform it again, while
+loading a frame after a threshold uses the restored attachment/object state.
+The hidden bit is not an input to `chrlvTickThrowGrenade`, so it remains in the
+damage/lifecycle batch rather than being restored speculatively here.
+
+The twelfth CHR serialization slice adds every other payload-free action:
+
+```c
+ACT_INIT;         /* Converts itself to initialized standing on the next tick. */
+ACT_KNEEL;        /* Holds the current kneeling model animation. */
+ACT_SURRENDER;    /* Advances/loops the current surrender model animation. */
+ACT_LOOKATTARGET; /* Unused GoldenEye marker; no action tick. */
+ACT_STARTALARM;   /* Activates the alarm at model frame 60. */
+ACT_TURNDIR;      /* Unused GoldenEye marker; no action tick. */
+ACT_TEST;         /* Death-stagger model animation used by GoldenEye. */
+ACT_BONDINTRO;    /* Advances the player intro model animation. */
+ACT_BONDDIE;      /* Removed/no-op player-death action tick. */
+ACT_NULL;         /* Explicit no-action marker; no action tick. */
+```
+
+None of these actions reads a member of the 120-byte action union. Their saved
+payload is therefore the discriminator plus the common model-animation
+controller when a model exists. `sleep`, equipment attachments, spatial state,
+and model transforms are restored by their existing independent slices.
+
+`ACT_INIT` is handled before the action switch: its next tick sets
+`CHRFLAG_INIT`, converts the character to a fully initialized `ACT_STAND`, and
+creates fresh stand-union values. It never consumes the saved union overlay.
+`ACT_KNEEL` only forces `sleep` to zero. `ACT_SURRENDER` examines its model
+animation/frame and may switch to the looping unarmed surrender animation;
+weapon-drop ownership is represented by the already restored equipment graph,
+not by action-union bytes. `ACT_STARTALARM`, `ACT_TEST`, and `ACT_BONDINTRO`
+likewise branch exclusively on model identity/frame.
+
+`ACT_LOOKATTARGET` and `ACT_TURNDIR` have neither setters nor tick cases in the
+GoldenEye codebase. `ACT_BONDDIE` has a dispatched but empty tick, and
+`ACT_NULL` has no tick case. They are retained enum/layout markers; restoring
+their discriminator and model state exactly preserves their inert behavior.
+`ACT_BONDMULTI` is not included because it contains a table pointer plus
+animation state. Combat and damage/lifecycle actions also remain excluded.
+
+The thirteenth CHR serialization slice adds `ACT_ANIM`:
+
+```c
+ChrRecord::act_anim.unk02c;        /* Boolean ANIM_UNKNOWN option. */
+ChrRecord::act_anim.holdLastFrame; /* Boolean hold/loop terminal-frame option. */
+ChrRecord::act_anim.playSfx;       /* Boolean ambient-animation/SFX option. */
+ChrRecord::act_anim.idleOnEnd;     /* Boolean idle-after-completion option. */
+ChrRecord::act_anim.noTranslate;   /* Boolean no-root-translation option. */
+CHRFLAG_02000000;                  /* Sneeze SFX has crossed its trigger frame. */
+```
+
+All five action values are normalized to `0` or `1`. They originate from the
+`PlayAnimation` command's option byte: `ANIM_UNKNOWN` (`0x02`),
+`ANIM_LOOP_HOLD_LAST_FRAME` (`0x04`), `ANIM_PLAY_SFX` (`0x08`),
+`ANIM_IDLE_POSE_WHEN_COMPLETE` (`0x10`), and `ANIM_NO_TRANSLATION` (`0x40`).
+The animation identity, frame range, direction, flip, speed, translation, and
+interpolation state already live in the common `Model` payload, so no static
+animation pointer is added to the action payload.
+
+`holdLastFrame == 0` makes `chrlvTickAnim` return to a normal standing/kneeling
+state when the model reaches its terminal frame; a nonzero value retains the
+action. `idleOnEnd` causes the action to keep assigning short sleep intervals
+after completion. `playSfx` also makes `chrHasStoppedOrPatroling` treat the
+animation as interruptible/stopped. `unk02c` and `noTranslate` are initialized
+from command options but have no later direct `ChrRecord` consumers in the
+current decompilation; they are still serialized because they are defined live
+action configuration rather than stale overlay bytes.
+
+`CHRFLAG_02000000` is cleared whenever `ACT_ANIM` starts and set when the sneeze
+animation crosses frame 42. It suppresses replay of that one-shot sneeze sound.
+Only this bit is merged into `chrflags`; all unrelated lifecycle and behavior
+bits remain untouched. This is safe for both retained CHRs and newly allocated
+replacement-mode CHRs and does not serialize an audio pointer.
+
 ### `act_surprised`
 
 ```c
@@ -876,20 +982,24 @@ action has no serialized union payload.
 
 ### `act_throwgrenade`
 
-Target and hand state for grenade throwing.
+Declared overlay for grenade throwing.
 
 ```c
 struct act_throwgrenade {
-    u32  entitytype; /* TODO: determine target selector values. */
-    u32  entityid;   /* TODO: determine ID interpretation and sentinels. */
-    u32  hand;       /* TODO: determine whether this is a GUNHAND value. */
-    bool needsequip; /* TODO: verify meaning; expected Boolean storage. */
+    u32  entitytype; /* Inactive/uninitialized in GoldenEye. */
+    u32  entityid;   /* Inactive/uninitialized in GoldenEye. */
+    u32  hand;       /* Inactive/uninitialized in GoldenEye. */
+    bool needsequip; /* Inactive/uninitialized in GoldenEye. */
 };
 ```
 
-No GoldenEye consumer currently references these named members; the throw
-animation is driven by the model and other CHR state. Do not serialize inferred
-semantics until the fields are identified.
+No GoldenEye code reads or writes these named members. The declarations appear
+to preserve a later-engine layout, but in this game the throw animation is
+driven by the live model and held-weapon attachment. Direction/hand comes from
+`Model::gunhand`; whether the grenade was temporarily equipped is represented
+by the attached weapon object's state and the animation's starting frame.
+Serializing these union bytes would preserve stale data from the preceding
+action, so the implemented action payload deliberately omits them.
 
 ### `act_bondmulti`
 

@@ -11,11 +11,11 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 ## Current Goal
 
 Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
-ten conservative field sets, including character/model configuration, spatial,
-movement, equipment, and simple/navigation action and model-animation state,
-are implemented; supporting structures and the remaining restore surface are
-documented in `CHR.md`. Do not broaden the implementation without
-investigating and documenting the additional state coupling.
+thirteen conservative field sets, including character/model configuration,
+spatial, movement, equipment, and all pointer-free/model-only actions, are
+implemented; supporting structures and the remaining restore surface are
+documented in `CHR.md`. Do not broaden the implementation without investigating
+and documenting the additional state coupling.
 
 ### Next Goals
 
@@ -44,8 +44,9 @@ The common live model animation identity, frame, speed, looping,
 interpolation, and transform state is implemented for the completed simple
 and navigation batches. Implement the remaining action-specific payloads in
 batches:
-Combat: attack, attack-walk, attack-roll, grenade.
-Scripted/death/player actions last.
+Combat: attack, attack-walk, and attack-roll.
+Payload-bearing player action: bond-multi.
+Death and hit-reaction actions remain with damage/lifecycle below.
 
 Combat aiming state
 firecount, aimendcount, eight shoulder/back aim values, fireslot, and unk180 beam caches.

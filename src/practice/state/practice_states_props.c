@@ -1000,6 +1000,7 @@ static void skip_prop_data(StateStream *stream, u8 type) {
   } else if (type == PROP_TYPE_CHR) {
     ChrRecord temp_chr;
     temp_chr.hidden = 0;
+    temp_chr.chrflags = 0;
     temp_chr.model = NULL;
     load_chr_record(stream, &temp_chr, NULL);
   }
