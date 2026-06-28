@@ -44,7 +44,41 @@ not change prop allocation, linked lists, pointers, animation state, collision
 state, model state, or the current AI instruction. This makes them a
 conservative first slice.
 
-The second CHR serialization slice restores the following scalar AI-memory
+The second CHR serialization slice restores the character/model configuration:
+
+```c
+ChrRecord::headnum;   /* Signed head-model configuration index. */
+ChrRecord::bodynum;   /* Signed body-model configuration index. */
+ChrRecord::chrwidth;  /* Horizontal collision radius in world units. */
+ChrRecord::chrheight; /* Full standing collision height in world units. */
+```
+
+`headnum` and `bodynum` identify entries in the character model configuration
+tables and use signed eight-bit storage. Ordinary level characters have
+nonnegative IDs. A negative head ID is accepted by character-spawn paths to
+request a body-compatible head choice; once a character is spawned, its record
+normally contains the selected concrete head ID.
+
+These IDs must describe the allocated model rather than merely label it. In
+testing mode the loader retains the same active character/model allocation and
+restores the IDs on that record. In `ADD_AND_REMOVE_PROPS` replacement mode,
+`ChrAllocationState` is read before a destination character exists and the
+saved body/head pair is passed to `retrieve_header_for_body_and_head`; only
+then is the newly allocated `ChrRecord` populated. Replacement mode therefore
+does not assume that a pre-existing model matches the saved IDs.
+
+`chrwidth` is the radius used for character/world collision, path obstruction,
+movement probes, and the four-point `collision_bounds` diamond. It initializes
+to `20.0`. The wall-slump death path can reduce it to `10.0`, so the live value
+is serialized rather than recomputed from body identity. `chrheight`
+initializes to `185.0`; collision queries generally expose `chrheight - 20.0`
+as the usable vertical extent, while ground placement uses the full height.
+Both values are floating-point world units and are restored before the next
+character tick. The already implemented spatial slice separately restores the
+saved collision diamond, keeping it consistent with a nondefault width until
+normal collision processing recalculates it.
+
+The third CHR serialization slice restores the following scalar AI-memory
 fields:
 
 ```c
@@ -77,7 +111,7 @@ guards when a character is shot or dies. AI resolves `CHR_SEE_SHOT` (`-6`) and
 `CHR_FREE` (`-1`) after an AI action tick, so nonnegative values are transient
 but valid save-state data.
 
-The third CHR serialization slice restores the character's perception memory:
+The fourth CHR serialization slice restores the character's perception memory:
 
 ```c
 ChrRecord::lastseetarget60;      /* Global tick of the last visual detection. */
@@ -101,7 +135,7 @@ serialized as a byte offset from `standTileStart`, not as an address. A saved
 offset is stable because save states can only be loaded into the same level;
 `-1` represents `NULL`.
 
-The fourth CHR serialization slice restores these independent runtime fields:
+The fifth CHR serialization slice restores these independent runtime fields:
 
 ```c
 ChrRecord::chrnum;       /* Runtime character ID. */
@@ -141,7 +175,7 @@ calculated from the character's stand tile. Both are `rgba_u8` values with four
 channels in the range 0-255. They are restored as a pair so an in-progress
 lighting transition remains internally consistent.
 
-The fifth CHR serialization slice restores the AI interpreter state:
+The sixth CHR serialization slice restores the AI interpreter state:
 
 ```c
 ChrRecord::ailist;       /* Active AI command list, encoded by stable list ID. */
@@ -170,7 +204,7 @@ action processing and are normally capped at 127; it is decremented by
 field also spaces some animation/action updates, so it is restored with the
 interpreter state rather than independently.
 
-The sixth CHR serialization slice restores spatial and movement state as one
+The seventh CHR serialization slice restores spatial and movement state as one
 unit:
 
 ```c
@@ -229,7 +263,7 @@ they form a diamond centered on `prop->pos` with points at plus/minus
 `chrwidth` on each axis. Saving the live values also preserves any
 action-specific bound update until the engine calculates them again.
 
-The seventh CHR serialization slice restores equipment and its attachment
+The eighth CHR serialization slice restores equipment and its attachment
 ownership:
 
 ```c
@@ -294,7 +328,7 @@ Detaching clears ownership and the attachment node, then activates and enables
 the prop in the world. Together these fields make rendering, dropping, firing,
 and hat-hit handling agree with the CHR pointer fields.
 
-The eighth CHR serialization slice restores the first action batch and its
+The ninth CHR serialization slice restores the first action batch and its
 live model-animation controller:
 
 ```c
@@ -353,7 +387,7 @@ allocation. This includes the primary and merge translation/heading working
 values that `modelSetAnimation` normally initializes, so replacement mode does
 not assume that the destination model was already playing the saved animation.
 
-The ninth CHR serialization slice adds the two navigation actions:
+The tenth CHR serialization slice adds the two navigation actions:
 
 ```c
 ChrRecord::act_patrol; /* Path ID, step/direction, waydata, visibility tick, speed. */

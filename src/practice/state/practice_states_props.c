@@ -1736,10 +1736,15 @@ bool load_props_state(StateStream *stream) {
     case PROP_TYPE_CHR:
       // Replacement mode rebuilt the PropRecord, ChrRecord, and Model before
       // applying common fields. Testing mode reaches this only for a matching
-      // existing active CHR.
+      // existing active CHR. In replacement mode the saved body and head were
+      // used to allocate the model; in testing mode model allocation is
+      // intentionally retained, but the immutable configuration IDs are still
+      // restored with the rest of the ChrRecord.
       if (prop->chr == NULL) {
         skip_prop_data(stream, PROP_TYPE_CHR);
       } else {
+        prop->chr->headnum = savedChrAllocation.headnum;
+        prop->chr->bodynum = savedChrAllocation.bodynum;
         load_chr_prop_spatial_state(prop, &savedPropPos, savedPropStanOffset,
                                     savedPropRooms, createdChrProp);
         load_chr_record(stream, prop->chr,

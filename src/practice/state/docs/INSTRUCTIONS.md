@@ -11,9 +11,9 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 ## Current Goal
 
 Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
-nine conservative field sets, including spatial, movement, equipment, and
-simple/navigation action and model-animation state, are implemented; supporting structures
-and the remaining restore surface are
+ten conservative field sets, including character/model configuration, spatial,
+movement, equipment, and simple/navigation action and model-animation state,
+are implemented; supporting structures and the remaining restore surface are
 documented in `CHR.md`. Do not broaden the implementation without
 investigating and documenting the additional state coupling.
 
@@ -28,8 +28,9 @@ After the current goal we will need to handle:
 
 ## Prompt
 
-Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and implement the first set of props in the "Remaining Groups". These are intended to be a group of fields that are easy to restore since they don't rely on other fields. They are flexible so if one field is too hard or the grouping doesn't make sense you can edit the groupings. Make sure to:
+Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and implement a set of props in the "Remaining Groups". These are intended to be a group of fields that are easy to restore since they don't rely on other fields. They are flexible so if one field is too hard or the grouping doesn't make sense you can edit the groupings. Make sure to:
 
+- See practice_states_chr.c for the current state of the code
 - Document their purpose, possible values, etc. in the docs files the same way as the existing fields using the same format, and move them out of the TODO section
 - Remove them from the remaining groups section once implemented
 - Tell me what to do in the game to test that it works and doesn't crash/hang
@@ -53,10 +54,6 @@ These depend on equipped weapons, attack action, and model pose, so they should 
 Damage and lifecycle
 damage, maxdamage, fadealpha, flinchcnt, chrflags, remaining hidden bits, and die/dead/argh actions.
 Whole chrflags and hidden restoration belongs here. Their bits can trigger initialization, firing, movement, freezing, item drops, or character removal.
-
-Character/model configuration
-headnum, bodynum, chrwidth, and chrheight.
-Head/body IDs must agree with the allocated model. Width can change during some death actions, so dimensions should be restored with model/lifecycle state.
 
 Audio and transient runtime allocations
 ptr_SEbuffer3, ptr_SEbuffer4, field_178, and field_20.

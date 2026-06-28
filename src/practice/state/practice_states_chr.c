@@ -437,6 +437,8 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_f32(stream, chr->hearingscale);
   write_u8(stream, chr->morale);
   write_u8(stream, chr->alertness);
+  write_f32(stream, chr->chrwidth);
+  write_f32(stream, chr->chrheight);
 
   write_u8(stream, (u8)chr->numarghs);
   write_u8(stream, (u8)chr->numclosearghs);
@@ -552,6 +554,8 @@ void load_chr_record(StateStream *stream, ChrRecord *chr,
   chr->hearingscale = read_f32(stream);
   chr->morale = read_u8(stream);
   chr->alertness = read_u8(stream);
+  chr->chrwidth = read_f32(stream);
+  chr->chrheight = read_f32(stream);
 
   chr->numarghs = (s8)read_u8(stream);
   chr->numclosearghs = (s8)read_u8(stream);
