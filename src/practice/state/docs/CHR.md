@@ -124,6 +124,35 @@ calculated from the character's stand tile. Both are `rgba_u8` values with four
 channels in the range 0-255. They are restored as a pair so an in-progress
 lighting transition remains internally consistent.
 
+The fifth CHR serialization slice restores the AI interpreter state:
+
+```c
+ChrRecord::ailist;       /* Active AI command list, encoded by stable list ID. */
+ChrRecord::aioffset;     /* Byte offset of the next command in that list. */
+ChrRecord::aireturnlist; /* AI list ID used by the Return command. */
+ChrRecord::sleep;        /* Ticks before the next AI/action update. */
+```
+
+`ailist` is a pointer into static global or level setup data and is never saved
+as an address. `chraiGetAIListID` converts it to its stable ID and
+`ailistFindById` resolves that ID on load. Global list IDs occupy `0-1024`,
+level character lists occupy `1025-4095`, and background lists start at
+`4096`. ID `0` is valid, so the serialized null/not-found sentinel is `-1`.
+
+`aioffset` is an unsigned 16-bit byte offset to the next command within
+`ailist`. It is updated when an AI list yields. The same-ROM, same-level load
+restriction guarantees that saved command boundaries still describe the
+resolved list.
+
+`aireturnlist` is a signed 16-bit stable list ID used by `AI_Return`; `-1`
+means no return list has been assigned. It does not contain an address.
+
+`sleep` is a signed eight-bit tick delay. Positive values postpone AI and
+action processing and are normally capped at 127; it is decremented by
+`g_ClockTimer`, and reaching a negative value permits the next AI update. This
+field also spaces some animation/action updates, so it is restored with the
+interpreter state rather than independently.
+
 The payload is implemented in `practice_states_chr.c` and dispatched by
 `practice_states_props.c`. The common `PropRecord` payload is deliberately not
 restored for CHRs yet: changing its position, stand tile, or rooms without also
@@ -134,8 +163,6 @@ Do not include the following in that slice:
 - `damage`, `maxdamage`, action data, `actiontype`, movement fields, held
   weapons, model state, or flags. Those values have coupled state which must be
   investigated and restored together.
-- AI-list fields. The AI list requires stable list identification and
-  coordinated instruction offsets.
 - The complete `hidden` and `chrflags` fields. They contain action-coupled and
   destructive bits which must be restored with character action, model,
   movement, damage, and allocation state.

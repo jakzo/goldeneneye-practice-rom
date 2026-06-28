@@ -289,7 +289,8 @@ typedef struct ChrRecord
     u8          firecount[2];                     /* 0x0004 - Shot count tracking for each hand */
     s8          headnum;                          /* 0x0006 - Head mesh configuration index */
     ACT_TYPE    actiontype : 8;                   /* 0x0007 - Active behavior action state (ACT_TYPE) */
-    s8          sleep;                            /* 0x0008 - Ticks to sleep/idle before activation */
+    s8          sleep;                            /* 0x0008 - Signed tick delay before the next AI/action
+                                                   *          update; normally 0-127, decremented each tick */
     s8          invalidmove;                      /* 0x0009 - Collision/unreachable path flag */
     s8          numclosearghs;                    /* 0x000A - AI-readable near-miss/close-hit counter;
                                                    *          initialized to 0 (exact increment path TODO) */
@@ -405,9 +406,11 @@ typedef struct ChrRecord
     rgba_u8     nextcol;                          /* 0x00F8 - Shading target color for transition */
     f32         damage;                           /* 0x00FC - Current damage accumulated */
     f32         maxdamage;                        /* 0x0100 - Maximum damage tolerance health */
-    AIRecord   *ailist;                           /* 0x0104 - Pointer to the AI action routine list */
-    u16         aioffset;                         /* 0x0108 - Active instruction offset in AI routine */
-    s16         aireturnlist;                     /* 0x010A - Return address stack offset for AI list call */
+    AIRecord   *ailist;                           /* 0x0104 - Active static AI command list.
+                                                   *          Serialized by list ID, never by address. */
+    u16         aioffset;                         /* 0x0108 - Byte offset of the next command in ailist */
+    s16         aireturnlist;                     /* 0x010A - Stable AI list ID used by AI_Return;
+                                                   *          -1 means no return list */
     u8          morale;                           /* 0x010C - Morale check thresholds */
     u8          alertness;                        /* 0x010D - Active target detection alert level */
     u8          flags2;                           /* 0x010E - Complete secondary AI-script flag byte:
@@ -458,12 +461,14 @@ The implemented save/load slices restore
 `lastseetarget60`, `lastknowntargetpos`, `targetTile`, `seen_bond_time`, and
 `lastheartarget60`, `chrnum`, `flags2`, `timer60`, the
 `CHRHIDDEN_TIMER_ACTIVE` bit, `shotbondsum`, `shadecol`, and `nextcol`.
-`flags2` is restored completely; only the timer-active bit of `hidden` is
-restored. `targetTile` is relocated through a stable stand-tile offset. See
-`CHR.md` for the fields explicitly deferred and the active-prop-only
-assumption. CHR base `PropRecord` fields are not restored yet because position,
-stand tile, and room changes require coordinated character model, movement,
-and collision updates.
+The AI interpreter fields `ailist`, `aioffset`, `aireturnlist`, and `sleep`
+are also restored. `flags2` is restored completely; only the timer-active bit
+of `hidden` is restored. `targetTile` is relocated through a stable stand-tile
+offset, while `ailist` is relocated through a stable AI list ID. See `CHR.md`
+for the fields explicitly deferred and the active-prop-only assumption. CHR
+base `PropRecord` fields are not restored yet because position, stand tile, and
+room changes require coordinated character model, movement, and collision
+updates.
 
 ---
 

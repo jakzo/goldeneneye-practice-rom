@@ -1,8 +1,13 @@
 #include "practice_states_chr.h"
 #include "practice_states_utils.h"
+#include "chrai.h"
 #include <bondconstants.h>
 
+extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
+
 void save_chr_record(StateStream *stream, const ChrRecord *chr) {
+  s32 ailist_id = -1;
+
   write_u8(stream, (u8)chr->accuracyrating);
   write_u8(stream, (u8)chr->speedrating);
   write_u8(stream, (u8)chr->arghrating);
@@ -33,9 +38,20 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_f32(stream, chr->shotbondsum);
   write_bytes(stream, &chr->shadecol, sizeof(rgba_u8));
   write_bytes(stream, &chr->nextcol, sizeof(rgba_u8));
+
+  if (chr->ailist != NULL) {
+    bool is_global_ailist;
+    ailist_id = chraiGetAIListID(chr->ailist, &is_global_ailist);
+  }
+  write_u32(stream, ailist_id);
+  write_u16(stream, chr->aioffset);
+  write_u16(stream, (u16)chr->aireturnlist);
+  write_u8(stream, (u8)chr->sleep);
 }
 
 void load_chr_record(StateStream *stream, ChrRecord *chr) {
+  s32 ailist_id;
+
   chr->accuracyrating = (s8)read_u8(stream);
   chr->speedrating = (s8)read_u8(stream);
   chr->arghrating = (s8)read_u8(stream);
@@ -70,4 +86,15 @@ void load_chr_record(StateStream *stream, ChrRecord *chr) {
   chr->shotbondsum = read_f32(stream);
   read_bytes(stream, &chr->shadecol, sizeof(rgba_u8));
   read_bytes(stream, &chr->nextcol, sizeof(rgba_u8));
+
+  ailist_id = read_u32(stream);
+  chr->ailist = ailist_id != -1 ? ailistFindById(ailist_id) : NULL;
+  chr->aioffset = read_u16(stream);
+  chr->aireturnlist = (s16)read_u16(stream);
+  chr->sleep = (s8)read_u8(stream);
+
+  if (chr->ailist == NULL) {
+    chr->aioffset = 0;
+    chr->aireturnlist = -1;
+  }
 }
