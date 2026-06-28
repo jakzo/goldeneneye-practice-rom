@@ -3,6 +3,7 @@
 #include "chrobjhandler.h"
 #include "explosions.h"
 #include "practice_states.h"
+#include "practice_states_chr.h"
 #include "practice_states_utils.h"
 #include "practice_ui.h"
 #include <bondconstants.h>
@@ -678,6 +679,9 @@ static void skip_prop_data(StateStream *stream, u8 type) {
   } else if (type == PROP_TYPE_SMOKE) {
     struct Smoke temp_smoke;
     load_smoke_record(stream, &temp_smoke);
+  } else if (type == PROP_TYPE_CHR) {
+    ChrRecord temp_chr;
+    load_chr_record(stream, &temp_chr);
   }
 }
 
@@ -1027,6 +1031,11 @@ bool save_props_state(StateStream *stream) {
           "INVARIANT VIOLATION: Enabled PROP_TYPE_NUL at prop index %d", i);
       break;
     case PROP_TYPE_CHR:
+      if (prop->chr == NULL) {
+        practiceLogWarn("Enabled CHR prop at index %d has no ChrRecord", i);
+        return FALSE;
+      }
+      save_chr_record(stream, prop->chr);
       break;
     case PROP_TYPE_PLAYER:
       practiceLogDebug(
@@ -1199,8 +1208,13 @@ bool load_props_state(StateStream *stream) {
     case PROP_TYPE_VIEWER:
       supportedType = TRUE;
       break;
-    case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
+      // The CHR-specific payload is supported, but restoring the base
+      // PropRecord would move the character without synchronizing its model,
+      // movement, collision, stand tile, and room state.
+      supportedType = FALSE;
+      break;
+    case PROP_TYPE_NUL:
     case PROP_TYPE_PLAYER:
     case PROP_TYPE_MAX:
       supportedType = FALSE;
@@ -1348,8 +1362,18 @@ bool load_props_state(StateStream *stream) {
       }
       break;
 
-    case PROP_TYPE_NUL:
     case PROP_TYPE_CHR:
+      // TODO: When loading can add or replace props, allocate the missing
+      // ChrRecord and Model and establish their back-pointers before loading.
+      // For now only restore onto the existing active character.
+      if (prop->chr == NULL) {
+        skip_prop_data(stream, PROP_TYPE_CHR);
+      } else {
+        load_chr_record(stream, prop->chr);
+      }
+      break;
+
+    case PROP_TYPE_NUL:
     case PROP_TYPE_PLAYER:
     // Viewer state loaded after rest of props
     case PROP_TYPE_VIEWER:

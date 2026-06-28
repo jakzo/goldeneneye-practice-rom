@@ -10,7 +10,11 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 
 ## Current Goal
 
-Currently we want to be able to save and load the state of each type of prop.
+Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
+scalar AI field set is implemented; its supporting structures and the
+remaining restore surface are documented in `CHR.md`. Do not broaden the
+implementation without investigating and documenting the additional state
+coupling.
 
 ### Next Goals
 

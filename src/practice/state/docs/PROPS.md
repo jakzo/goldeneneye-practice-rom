@@ -68,7 +68,8 @@ Each `PropRecord` defines its entity type in its `type` field:
 - `PROP_TYPE_NUL` (0): Null / unused.
 - `PROP_TYPE_OBJ` (1): Interactive game objects (crates, armor, computers, etc. - uses `obj`). Save/load implemented.
 - `PROP_TYPE_DOOR` (2): Doors (uses `door`). Save/load implemented.
-- `PROP_TYPE_CHR` (3): Characters/NPCs (uses `chr`).
+- `PROP_TYPE_CHR` (3): Characters/NPCs (uses `chr`). Partial save/load
+  implemented for the initial scalar AI field set.
 - `PROP_TYPE_WEAPON` (4): Weapon pickups, thrown weapons, and mines in the world (uses `weapon`). Save/load implemented.
 - `PROP_TYPE_PLAYER` (5): Player (uses `chr`).
 - `PROP_TYPE_VIEWER` (6): Multi-player/cutscene viewer (uses `chr`).
@@ -272,25 +273,34 @@ The serializer also restores the inherited `ObjectRecord`, including transform, 
 ### 4. `ChrRecord` (PROP_TYPE_CHR)
 
 The active runtime character entity representing guards, scientists, key targets, and multiplayer opponents.
+The action-union and other supporting structs, pointer hazards, and the
+conservative first field set selected for implementation are documented in
+[`CHR.md`](CHR.md).
 
 ```c
 typedef struct ChrRecord
 {
     s16         chrnum;                           /* 0x0000 - Index of this guard in level registry */
-    s8          accuracyrating;                   /* 0x0002 - Accuracy parameter (0-100) */
-    s8          speedrating;                      /* 0x0003 - Speed/Movement scaling parameter */
+    s8          accuracyrating;                   /* 0x0002 - Signed shooting-accuracy adjustment
+                                                   *          (-128..127; scripts normally use rating values) */
+    s8          speedrating;                      /* 0x0003 - Signed reaction/movement-speed adjustment
+                                                   *          (-128..127; scripts normally use rating values) */
     u8          firecount[2];                     /* 0x0004 - Shot count tracking for each hand */
     s8          headnum;                          /* 0x0006 - Head mesh configuration index */
     ACT_TYPE    actiontype : 8;                   /* 0x0007 - Active behavior action state (ACT_TYPE) */
     s8          sleep;                            /* 0x0008 - Ticks to sleep/idle before activation */
     s8          invalidmove;                      /* 0x0009 - Collision/unreachable path flag */
-    s8          numclosearghs;                    /* 0x000A - Damage animation tracking */
-    s8          numarghs;                         /* 0x000B - Total damage reaction calls */
+    s8          numclosearghs;                    /* 0x000A - AI-readable near-miss/close-hit counter;
+                                                   *          initialized to 0 (exact increment path TODO) */
+    s8          numarghs;                         /* 0x000B - Confirmed damage-reaction counter;
+                                                   *          initialized to 0 and incremented on hit reactions */
     u8          fadealpha;                        /* 0x000C - Alpha blending for dying/spawning chrs */
-    s8          arghrating;                       /* 0x000D */
+    s8          arghrating;                       /* 0x000D - Signed damage-reaction-speed adjustment
+                                                   *          (-128..127; scripts normally use rating values) */
     s8          aimendcount;                      /* 0x000E */
     s8          bodynum;                          /* 0x000F - Body mesh configuration index */
-    u8          grenadeprob;                      /* 0x0010 - Percentage chance of throwing grenade */
+    u8          grenadeprob;                      /* 0x0010 - Grenade-attempt threshold, 0-255.
+                                                   *          AI compares it with randomGetNext() % 255. */
     s8          flinchcnt;                        /* 0x0011 */
     u16         hidden;                           /* 0x0012 - Visibility state tags (CHRHIDDEN):
                                                    *   0x0001: CHRHIDDEN_DROP_HELD_ITEMS (force drop items/weapons)
@@ -373,18 +383,23 @@ typedef struct ChrRecord
     s32         lastwalk60;                       /* 0x00C8 */
     s32         lastmoveok60;                     /* 0x00CC */
     f32         visionrange;                      /* 0x00D0 - Sight distance parameter in world units */
-    s32         lastseetarget60;                  /* 0x00D4 - Global timer when target was last seen */
-    coord3d     lastknowntargetpos;               /* 0x00D8 - Position vector of last seen target location */
-    void       *targetTile;                       /* 0x00E4 - Navmesh tile of target */
+    s32         lastseetarget60;                  /* 0x00D4 - Absolute g_GlobalTimer tick when the
+                                                   *          target was last seen; 0 means never */
+    coord3d     lastknowntargetpos;               /* 0x00D8 - Last target position recorded by
+                                                   *          either visual or auditory detection */
+    void       *targetTile;                       /* 0x00E4 - StandTile containing the remembered
+                                                   *          target position, or NULL */
     union {
-        s32     seen_bond_time;                   /* 0x00E8 - Timer since target detection */
+        s32     seen_bond_time;                   /* 0x00E8 - Absolute g_GlobalTimer tick of the
+                                                   *          last direct Bond sighting; 0 means never */
         struct {
             s16 lastshooter;                      /* 0x00E8 - ID of actor who last shot this guard */
             s16 timeshooter;                      /* 0x00EA - Shots count fired by shooter */
         };
     };
     f32         hearingscale;                     /* 0x00EC - Audio detection radius modifier */
-    s32         lastheartarget60;                 /* 0x00F0 - Global timer when target was last heard */
+    s32         lastheartarget60;                 /* 0x00F0 - Absolute g_GlobalTimer tick when the
+                                                   *          target was last heard; 0 means never */
     rgba_u8     shadecol;                         /* 0x00F4 - Character base lighting colors */
     rgba_u8     nextcol;                          /* 0x00F8 - Shading target color for transition */
     f32         damage;                           /* 0x00FC - Current damage accumulated */
@@ -397,12 +412,17 @@ typedef struct ChrRecord
     u8          flags2;                           /* 0x010E - Secondary flags:
                                                    *   0x01: FLAGS2_DONT_POINT_AT_BOND (AI doesn't raise gun at player)
                                                    */
-    u8          random;                           /* 0x010F - Random seed value refreshed regularly */
+    u8          random;                           /* 0x010F - Latched AI random byte, 0-255.
+                                                   *          Updated by AI_SetNewRandom and reused by branches. */
     s32         timer60;                          /* 0x0110 */
-    s16         padpreset1;                       /* 0x0114 - Preset path pad */
-    s16         chrpreset1;                       /* 0x0116 - Preset target character ID */
-    s16         chrseeshot;                       /* 0x0118 */
-    s16         chrseedie;                        /* 0x011A */
+    s16         padpreset1;                       /* 0x0114 - Concrete pad ID substituted for
+                                                   *          PAD_PRESET1 (9000), or -1 when unset */
+    s16         chrpreset1;                       /* 0x0116 - Concrete character ID substituted for
+                                                   *          CHR_PRESET (-4), or -1 when unset */
+    s16         chrseeshot;                       /* 0x0118 - ID of character seen being shot;
+                                                   *          CHR_FREE (-1) means no pending event */
+    s16         chrseedie;                        /* 0x011A - ID of character seen dying;
+                                                   *          CHR_FREE (-1) means no pending event */
     rect4f      collision_bounds;                 /* 0x011C - Bounding box boundaries (4 coordinate pairs) */
     f32         shotbondsum;                      /* 0x013C */
     f32         aimuplshoulder;                   /* 0x0140 - Arms rotation angles */
@@ -425,6 +445,18 @@ typedef struct ChrRecord
     PropRecord *handle_positiondata_hat;          /* 0x01CC - Pointer to hat prop definition */
 } ChrRecord;
 ```
+
+The implemented save/load slices restore
+`accuracyrating`, `speedrating`, `arghrating`, `grenadeprob`, `visionrange`,
+`hearingscale`, `morale`, `alertness`, `numarghs`, `numclosearghs`, `random`,
+`padpreset1`, `chrpreset1`, `chrseeshot`, `chrseedie`,
+`lastseetarget60`, `lastknowntargetpos`, `targetTile`, `seen_bond_time`, and
+`lastheartarget60`. These AI parameters and IDs do not require synchronization
+with prop allocation, animation, collision, model, or movement state.
+`targetTile` is relocated through a stable stand-tile offset. See `CHR.md` for
+the fields explicitly deferred and the active-prop-only assumption. CHR base
+`PropRecord` fields are not restored yet because position, stand tile, and room
+changes require coordinated character model, movement, and collision updates.
 
 ---
 
