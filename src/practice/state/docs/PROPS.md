@@ -280,7 +280,8 @@ conservative first field set selected for implementation are documented in
 ```c
 typedef struct ChrRecord
 {
-    s16         chrnum;                           /* 0x0000 - Index of this guard in level registry */
+    s16         chrnum;                           /* 0x0000 - Runtime character ID used by AI lookups;
+                                                   *          normally level-assigned, but scripts can replace it */
     s8          accuracyrating;                   /* 0x0002 - Signed shooting-accuracy adjustment
                                                    *          (-128..127; scripts normally use rating values) */
     s8          speedrating;                      /* 0x0003 - Signed reaction/movement-speed adjustment
@@ -409,12 +410,15 @@ typedef struct ChrRecord
     s16         aireturnlist;                     /* 0x010A - Return address stack offset for AI list call */
     u8          morale;                           /* 0x010C - Morale check thresholds */
     u8          alertness;                        /* 0x010D - Active target detection alert level */
-    u8          flags2;                           /* 0x010E - Secondary flags:
-                                                   *   0x01: FLAGS2_DONT_POINT_AT_BOND (AI doesn't raise gun at player)
+    u8          flags2;                           /* 0x010E - Complete secondary AI-script flag byte:
+                                                   *   0x01: FLAGS2_DONT_POINT_AT_BOND
+                                                   *   0x02: FLAGS2_02 (unknown/script-reserved)
+                                                   *   0x04: FLAGS2_04 (persistent alarm AI state)
                                                    */
     u8          random;                           /* 0x010F - Latched AI random byte, 0-255.
                                                    *          Updated by AI_SetNewRandom and reused by branches. */
-    s32         timer60;                          /* 0x0110 */
+    s32         timer60;                          /* 0x0110 - Per-character AI timer, incremented by
+                                                   *          g_ClockTimer while CHRHIDDEN_TIMER_ACTIVE is set */
     s16         padpreset1;                       /* 0x0114 - Concrete pad ID substituted for
                                                    *          PAD_PRESET1 (9000), or -1 when unset */
     s16         chrpreset1;                       /* 0x0116 - Concrete character ID substituted for
@@ -424,7 +428,8 @@ typedef struct ChrRecord
     s16         chrseedie;                        /* 0x011A - ID of character seen dying;
                                                    *          CHR_FREE (-1) means no pending event */
     rect4f      collision_bounds;                 /* 0x011C - Bounding box boundaries (4 coordinate pairs) */
-    f32         shotbondsum;                      /* 0x013C */
+    f32         shotbondsum;                      /* 0x013C - Fractional accumulated guard-fire damage
+                                                   *          against Bond; normally 0.0 <= value < 1.0 */
     f32         aimuplshoulder;                   /* 0x0140 - Arms rotation angles */
     f32         aimuprshoulder;                   /* 0x0144 */
     f32         aimupback;                        /* 0x0148 */
@@ -451,12 +456,14 @@ The implemented save/load slices restore
 `hearingscale`, `morale`, `alertness`, `numarghs`, `numclosearghs`, `random`,
 `padpreset1`, `chrpreset1`, `chrseeshot`, `chrseedie`,
 `lastseetarget60`, `lastknowntargetpos`, `targetTile`, `seen_bond_time`, and
-`lastheartarget60`. These AI parameters and IDs do not require synchronization
-with prop allocation, animation, collision, model, or movement state.
-`targetTile` is relocated through a stable stand-tile offset. See `CHR.md` for
-the fields explicitly deferred and the active-prop-only assumption. CHR base
-`PropRecord` fields are not restored yet because position, stand tile, and room
-changes require coordinated character model, movement, and collision updates.
+`lastheartarget60`, `chrnum`, `flags2`, `timer60`, the
+`CHRHIDDEN_TIMER_ACTIVE` bit, `shotbondsum`, `shadecol`, and `nextcol`.
+`flags2` is restored completely; only the timer-active bit of `hidden` is
+restored. `targetTile` is relocated through a stable stand-tile offset. See
+`CHR.md` for the fields explicitly deferred and the active-prop-only
+assumption. CHR base `PropRecord` fields are not restored yet because position,
+stand tile, and room changes require coordinated character model, movement,
+and collision updates.
 
 ---
 

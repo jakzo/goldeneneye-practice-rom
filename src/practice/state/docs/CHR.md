@@ -84,6 +84,46 @@ serialized as a byte offset from `standTileStart`, not as an address. A saved
 offset is stable because save states can only be loaded into the same level;
 `-1` represents `NULL`.
 
+The fourth CHR serialization slice restores these independent runtime fields:
+
+```c
+ChrRecord::chrnum;       /* Runtime character ID. */
+ChrRecord::flags2;       /* Complete secondary AI-script flag byte. */
+ChrRecord::timer60;      /* Per-character AI timer value. */
+CHRHIDDEN_TIMER_ACTIVE;  /* Timer running/paused control bit only. */
+ChrRecord::shotbondsum;  /* Fractional accumulated damage against Bond. */
+ChrRecord::shadecol;     /* Current four-channel tile-lighting colour. */
+ChrRecord::nextcol;      /* Target four-channel tile-lighting colour. */
+```
+
+`chrnum` is the character's runtime identity used by `chrFindById` and AI
+character selectors. It is normally a nonnegative level-assigned ID, can be
+replaced by `AI_SetMyChrNum`, and uses signed 16-bit storage. Restoring all
+surviving CHRs returns their script-visible identities to the saved values.
+
+`flags2` is restored as a complete byte. AI commands set, unset, and test
+arbitrary masks in this field. Known bits are `FLAGS2_DONT_POINT_AT_BOND`
+(`0x01`), unknown/script-reserved `FLAGS2_02` (`0x02`), and `FLAGS2_04`
+(`0x04`), which alarm AI uses as persistent state. The remaining bits are
+available to script masks but have no documented built-in meaning.
+
+`timer60` initializes to zero and increments by `g_ClockTimer` only while
+`CHRHIDDEN_TIMER_ACTIVE` (`0x0040`) is set. AI can start, reset, pause, resume,
+and compare this timer. The timer value and active bit are restored together,
+but only that bit is merged into `hidden`; all unrelated `hidden` state is
+preserved. Restoring the whole `hidden` field is unsafe until removal, firing,
+movement, freeze, background-AI, and action state are coordinated.
+
+`shotbondsum` is a fractional damage accumulator used while guard fire is
+calculated. It initializes to `0.0`, accumulates accuracy-adjusted contributions
+and normally remains below `1.0`; reaching `1.0` applies damage to Bond and
+resets it to zero.
+
+`shadecol` is the current character lighting colour and `nextcol` is the target
+calculated from the character's stand tile. Both are `rgba_u8` values with four
+channels in the range 0-255. They are restored as a pair so an in-progress
+lighting transition remains internally consistent.
+
 The payload is implemented in `practice_states_chr.c` and dispatched by
 `practice_states_props.c`. The common `PropRecord` payload is deliberately not
 restored for CHRs yet: changing its position, stand tile, or rooms without also
@@ -94,9 +134,11 @@ Do not include the following in that slice:
 - `damage`, `maxdamage`, action data, `actiontype`, movement fields, held
   weapons, model state, or flags. Those values have coupled state which must be
   investigated and restored together.
-- `timer60` and AI-list fields. The timer requires its
-  `CHRHIDDEN_TIMER_ACTIVE` control bit, while the AI list requires stable list
-  identification and coordinated instruction offsets.
+- AI-list fields. The AI list requires stable list identification and
+  coordinated instruction offsets.
+- The complete `hidden` and `chrflags` fields. They contain action-coupled and
+  destructive bits which must be restored with character action, model,
+  movement, damage, and allocation state.
 - Prop position. A CHR position change must keep the prop, character movement
   history, stand tile, rooms, collision bounds, and model transform coherent.
 

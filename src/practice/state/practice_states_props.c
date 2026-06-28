@@ -681,6 +681,7 @@ static void skip_prop_data(StateStream *stream, u8 type) {
     load_smoke_record(stream, &temp_smoke);
   } else if (type == PROP_TYPE_CHR) {
     ChrRecord temp_chr;
+    temp_chr.hidden = 0;
     load_chr_record(stream, &temp_chr);
   }
 }

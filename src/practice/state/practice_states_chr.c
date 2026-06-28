@@ -1,5 +1,6 @@
 #include "practice_states_chr.h"
 #include "practice_states_utils.h"
+#include <bondconstants.h>
 
 void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_u8(stream, (u8)chr->accuracyrating);
@@ -24,6 +25,14 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_u32(stream, get_tile_offset((StandTile *)chr->targetTile));
   write_u32(stream, chr->seen_bond_time);
   write_u32(stream, chr->lastheartarget60);
+
+  write_u16(stream, (u16)chr->chrnum);
+  write_u8(stream, chr->flags2);
+  write_u32(stream, chr->timer60);
+  write_u8(stream, (chr->hidden & CHRHIDDEN_TIMER_ACTIVE) != 0);
+  write_f32(stream, chr->shotbondsum);
+  write_bytes(stream, &chr->shadecol, sizeof(rgba_u8));
+  write_bytes(stream, &chr->nextcol, sizeof(rgba_u8));
 }
 
 void load_chr_record(StateStream *stream, ChrRecord *chr) {
@@ -49,4 +58,16 @@ void load_chr_record(StateStream *stream, ChrRecord *chr) {
   chr->targetTile = get_tile_by_offset((s32)read_u32(stream));
   chr->seen_bond_time = read_u32(stream);
   chr->lastheartarget60 = read_u32(stream);
+
+  chr->chrnum = (s16)read_u16(stream);
+  chr->flags2 = read_u8(stream);
+  chr->timer60 = read_u32(stream);
+  if (read_u8(stream)) {
+    chr->hidden |= CHRHIDDEN_TIMER_ACTIVE;
+  } else {
+    chr->hidden &= ~CHRHIDDEN_TIMER_ACTIVE;
+  }
+  chr->shotbondsum = read_f32(stream);
+  read_bytes(stream, &chr->shadecol, sizeof(rgba_u8));
+  read_bytes(stream, &chr->nextcol, sizeof(rgba_u8));
 }
