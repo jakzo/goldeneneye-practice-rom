@@ -25,17 +25,16 @@
                 "BYTEMATCH",
                 "_LANGUAGE_C"
             ],
-            "cStandard": "c11",
+            "cStandard": "gnu17",
             "cppStandard": "c++11",
-            "intelliSenseMode": "linux-clang-mips",
+            "intelliSenseMode": "macos-clang-x86",
             "compilerPath": "/usr/bin/clang",
             "compilerArgs": [
                 "-fms-extensions",
                 "-target",
                 "mips-linux-gnu",
                 "-mips3",
-                "-mabi=32",
-                "-G0"
+                "-mabi=32"
             ]
         }
     ],
