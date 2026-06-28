@@ -2,17 +2,17 @@
 #include "chrai.h"
 #include "chrobjhandler.h"
 #include "explosions.h"
+#include "objecthandler.h"
 #include "practice_states.h"
 #include "practice_states_chr.h"
+#include "practice_states_props.h"
 #include "practice_states_utils.h"
 #include "practice_ui.h"
+#include "chr.h"
+#include "chrlv.h"
 #include <bondconstants.h>
 #include <string.h>
 #include <ultra64.h>
-
-// TODO: Set to true and remove this once all prop types are supported and
-// tested
-#define ADD_AND_REMOVE_PROPS FALSE
 
 extern void doorActivatePortal(DoorRecord *door);
 extern void doorDeactivatePortal(DoorRecord *door);
@@ -27,6 +27,10 @@ extern AIRecord *ailistFindById(s32 ID);
 extern void projectileFree(Projectile *projectile);
 extern void embedmentFree(Embedment *embedment);
 extern void projectileReset(Projectile *projectile);
+extern void chrpropDelist(PropRecord *prop);
+extern s32 chrGetNumFree(void);
+extern void clear_aircraft_model_obj(Model *model);
+extern PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags);
 
 typedef union {
   ObjectRecord base;
@@ -46,15 +50,342 @@ typedef union {
   TankRecord tank;
 } TempObjectRecord;
 
+static ChrAttachmentIndices
+    pendingChrAttachments[POS_DATA_ENTRY_LEN];
+static bool pendingChrAttachmentsValid[POS_DATA_ENTRY_LEN];
+
+static void retain_prop_from_free_list(PropRecord *prop) {
+  PropRecord *current = ptr_obj_pos_list_final_entry;
+  PropRecord *previous = NULL;
+
+  while (current != NULL) {
+    if (current == prop) {
+      if (previous == NULL) {
+        ptr_obj_pos_list_final_entry = current->prev;
+      } else {
+        previous->prev = current->prev;
+      }
+      current->prev = NULL;
+      return;
+    }
+    previous = current;
+    current = current->prev;
+  }
+}
+
+static void clear_plain_prop(PropRecord *prop, bool release_prop) {
+  if (prop->flags & PROPFLAG_ENABLED) {
+    chrpropDeregisterRooms(prop);
+    chrpropDelist(prop);
+    chrpropDisable(prop);
+  }
+
+  prop->voidp = NULL;
+  prop->parent = NULL;
+  prop->child = NULL;
+  prop->prev = NULL;
+  prop->next = NULL;
+  prop->stan = NULL;
+  prop->rooms[0] = 0xff;
+
+  if (release_prop) {
+    chrpropFree(prop);
+  }
+}
+
+static void destroy_chr_prop(PropRecord *prop, bool release_prop) {
+  if (prop == NULL || prop->type != PROP_TYPE_CHR) {
+    return;
+  }
+
+  if (prop->chr != NULL && prop->chr->model != NULL) {
+    disable_sounds_attached_to_player_then_something(prop);
+  } else if (prop->flags & PROPFLAG_ENABLED) {
+    chrpropDeregisterRooms(prop);
+  }
+
+  if (prop->flags & PROPFLAG_ENABLED) {
+    chrpropDelist(prop);
+    chrpropDisable(prop);
+  }
+
+  clear_plain_prop(prop, release_prop);
+}
+
+static bool clear_prop_for_replacement(PropRecord *prop) {
+  if (prop == NULL) {
+    return TRUE;
+  }
+
+  if (!(prop->flags & PROPFLAG_ENABLED) && prop->parent == NULL) {
+    return TRUE;
+  }
+
+  if (prop->type == PROP_TYPE_CHR) {
+    destroy_chr_prop(prop, FALSE);
+    return TRUE;
+  }
+
+  if ((prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_DOOR ||
+       prop->type == PROP_TYPE_WEAPON) &&
+      prop->obj != NULL) {
+    // Keep the PropRecord itself out of the free list because the saved record
+    // at this index is about to reuse it.
+    objFreePermanently(prop->obj, FALSE);
+    clear_plain_prop(prop, FALSE);
+    return TRUE;
+  }
+
+  if (prop->type == PROP_TYPE_EXPLOSION && prop->explosion != NULL) {
+    prop->explosion->prop = NULL;
+    clear_plain_prop(prop, FALSE);
+    return TRUE;
+  }
+
+  if (prop->type == PROP_TYPE_SMOKE && prop->smoke != NULL) {
+    prop->smoke->prop = NULL;
+    clear_plain_prop(prop, FALSE);
+    return TRUE;
+  }
+
+  if (prop->type == PROP_TYPE_VIEWER || prop->type == PROP_TYPE_NUL) {
+    clear_plain_prop(prop, FALSE);
+    return TRUE;
+  }
+
+  // Future prop types need equivalent retained-slot teardown before the flag
+  // can be enabled.
+  return FALSE;
+}
+
+static PropRecord *create_chr_prop(PropRecord *prop,
+                                   const ChrAllocationState *allocation,
+                                   const coord3d *pos, s32 stan_offset) {
+  Model *model;
+  PropRecord *result;
+
+  if (prop == NULL || allocation->bodynum < 0 || chrGetNumFree() < 1) {
+    return NULL;
+  }
+
+  model = retrieve_header_for_body_and_head(
+      allocation->bodynum, allocation->headnum, 0);
+  if (model == NULL) {
+    return NULL;
+  }
+
+  retain_prop_from_free_list(prop);
+
+  prop->flags = 0;
+  prop->parent = NULL;
+  prop->child = NULL;
+  prop->prev = NULL;
+  prop->next = NULL;
+  prop->rooms[0] = 0xff;
+
+  result = init_GUARDdata_with_set_values(
+      prop, model, (coord3d *)pos, allocation->heading,
+      get_tile_by_offset(stan_offset), NULL);
+  if (result == NULL || result->chr == NULL) {
+    clear_aircraft_model_obj(model);
+    chrpropFree(prop);
+    return NULL;
+  }
+
+  result->chr->headnum = allocation->headnum;
+  result->chr->bodynum = allocation->bodynum;
+
+  // Initialization calculates and registers rooms. The saved common prop
+  // payload will install the authoritative room list immediately afterward.
+  chrpropDeregisterRooms(result);
+  return result;
+}
+
+static PropRecord *get_chr_attachment_prop(s16 index, s32 object_type) {
+  PropRecord *prop = get_prop_by_index(index);
+
+  if (prop == NULL ||
+      (prop->type != PROP_TYPE_OBJ && prop->type != PROP_TYPE_WEAPON) ||
+      prop->obj == NULL || prop->obj->type != object_type ||
+      prop->obj->prop != prop || prop->obj->model == NULL) {
+    return NULL;
+  }
+
+  return prop;
+}
+
+static bool prop_is_chr_attachment(PropRecord *prop,
+                                   PropRecord *attachments[4]) {
+  s32 i;
+
+  for (i = 0; i < 4; i++) {
+    if (attachments[i] == prop) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+static void detach_old_chr_attachment(ChrRecord *chr, PropRecord *prop,
+                                      PropRecord *saved_attachments[4]) {
+  if (prop == NULL || prop_is_chr_attachment(prop, saved_attachments) ||
+      prop->parent != chr->prop || prop->obj == NULL) {
+    return;
+  }
+
+  objDetach(prop);
+  if (prop->obj->model != NULL) {
+    prop->obj->model->attachedto = NULL;
+  }
+  chrpropActivate(prop);
+  chrpropEnable(prop);
+  chrpropRegisterRooms(prop);
+}
+
+static bool attach_prop_to_chr(ChrRecord *chr, PropRecord *prop,
+                               s32 switch_index) {
+  ObjectRecord *obj;
+
+  if (prop == NULL || chr->prop == NULL || chr->model == NULL ||
+      chr->model->obj == NULL ||
+      switch_index >= chr->model->obj->numSwitches ||
+      chr->model->obj->Switches[switch_index] == NULL) {
+    return FALSE;
+  }
+
+  obj = prop->obj;
+
+  if (prop->parent != chr->prop) {
+    if (prop->parent != NULL) {
+      objDetach(prop);
+    } else if (prop->flags & PROPFLAG_ENABLED) {
+      chrpropDeregisterRooms(prop);
+      chrpropDelist(prop);
+    }
+    chrpropReparent(prop, chr->prop);
+  }
+
+  // Held equipment is neither a deposited projectile nor an embedded object.
+  // The projectile/embedment pools were already restored from the save, so a
+  // pointer retained by a weapon dropped after the save must not be reused.
+  obj->projectile = NULL;
+  obj->runtime_bitflags &=
+      ~(RUNTIMEBITFLAG_DEPOSIT | RUNTIMEBITFLAG_EMBEDDED);
+  obj->runtime_bitflags |= RUNTIMEBITFLAG_HASOWNER;
+  obj->model->attachedto = chr->model;
+  obj->model->attachedto_objinst = chr->model->obj->Switches[switch_index];
+  chrpropDisable(prop);
+  return TRUE;
+}
+
+static void restore_chr_attachments(PropRecord *chr_prop,
+                                    ChrAttachmentIndices *indices) {
+  ChrRecord *chr = chr_prop->chr;
+  PropRecord *saved[4];
+  PropRecord *old[4];
+  s32 i;
+
+  if (chr == NULL || chr->prop != chr_prop) {
+    return;
+  }
+
+  saved[0] =
+      get_chr_attachment_prop(indices->weapons_held[GUNRIGHT],
+                              PROPDEF_COLLECTABLE);
+  saved[1] =
+      get_chr_attachment_prop(indices->weapons_held[GUNLEFT],
+                              PROPDEF_COLLECTABLE);
+  saved[2] = get_prop_by_index(indices->weapons_held[2]);
+  saved[3] = get_chr_attachment_prop(indices->hat, PROPDEF_HAT);
+
+  if (ADD_AND_REMOVE_PROPS) {
+    if (saved[GUNRIGHT] == NULL &&
+        indices->weapon_model[GUNRIGHT] >= 0) {
+      saved[GUNRIGHT] =
+          chrGiveWeapon(chr, indices->weapon_model[GUNRIGHT],
+                        indices->weaponnum[GUNRIGHT],
+                        indices->weapon_flags[GUNRIGHT]);
+    }
+    if (saved[GUNLEFT] == NULL &&
+        indices->weapon_model[GUNLEFT] >= 0) {
+      saved[GUNLEFT] =
+          chrGiveWeapon(chr, indices->weapon_model[GUNLEFT],
+                        indices->weaponnum[GUNLEFT],
+                        indices->weapon_flags[GUNLEFT]);
+    }
+    if (saved[3] == NULL && indices->hat_model >= 0) {
+      saved[3] =
+          hatCreateForChr(chr, indices->hat_model, indices->hat_flags);
+    }
+  }
+
+  if (saved[0] == saved[1]) {
+    saved[1] = NULL;
+  }
+  if (saved[3] == saved[0] || saved[3] == saved[1]) {
+    saved[3] = NULL;
+  }
+
+  old[0] = chr->weapons_held[0];
+  old[1] = chr->weapons_held[1];
+  old[2] = chr->weapons_held[2];
+  old[3] = chr->handle_positiondata_hat;
+
+  for (i = 0; i < 4; i++) {
+    detach_old_chr_attachment(chr, old[i], saved);
+  }
+
+  chr->weapons_held[0] = NULL;
+  chr->weapons_held[1] = NULL;
+  chr->weapons_held[2] = NULL;
+  chr->handle_positiondata_hat = NULL;
+
+  if (!attach_prop_to_chr(chr, saved[GUNRIGHT], 3)) {
+    saved[GUNRIGHT] = NULL;
+  }
+  if (!attach_prop_to_chr(chr, saved[GUNLEFT], 5)) {
+    saved[GUNLEFT] = NULL;
+  }
+  if (!attach_prop_to_chr(chr, saved[3], 6)) {
+    saved[3] = NULL;
+  }
+
+  chr->weapons_held[GUNRIGHT] = saved[GUNRIGHT];
+  chr->weapons_held[GUNLEFT] = saved[GUNLEFT];
+  // The third legacy slot has no readers or attachment-node semantics in the
+  // current decompilation. Preserve it only when it already names this CHR's
+  // child; normal runtime state leaves it NULL.
+  if (saved[2] != NULL && saved[2]->parent == chr_prop) {
+    chr->weapons_held[2] = saved[2];
+  }
+  chr->handle_positiondata_hat = saved[3];
+}
+
 static void removePropAtIndex(s16 index) {
   PropRecord *toClear = get_prop_by_index(index);
-  if (toClear == NULL || ADD_AND_REMOVE_PROPS)
+  if (toClear == NULL || !(toClear->flags & PROPFLAG_ENABLED))
     return;
 
-  objFreePermanently(toClear->obj, TRUE);
-  // TODO: Do I need to free the other records, models, etc. pointed to by
-  // this entry? Or do some special cleanup for certain prop types? Like
-  // removing them from global variable lists?
+  if (toClear->type == PROP_TYPE_CHR) {
+    destroy_chr_prop(toClear, TRUE);
+  } else if (toClear->type == PROP_TYPE_OBJ ||
+             toClear->type == PROP_TYPE_DOOR ||
+             toClear->type == PROP_TYPE_WEAPON) {
+    objFreePermanently(toClear->obj, TRUE);
+  } else if (toClear->type == PROP_TYPE_EXPLOSION) {
+    if (toClear->explosion != NULL) {
+      toClear->explosion->prop = NULL;
+    }
+    clear_plain_prop(toClear, TRUE);
+  } else if (toClear->type == PROP_TYPE_SMOKE) {
+    if (toClear->smoke != NULL) {
+      toClear->smoke->prop = NULL;
+    }
+    clear_plain_prop(toClear, TRUE);
+  } else {
+    clear_plain_prop(toClear, TRUE);
+  }
 }
 
 static s16 get_prop_index_for_object(ObjectRecord *obj) {
@@ -683,7 +1014,7 @@ static void skip_prop_data(StateStream *stream, u8 type) {
     ChrRecord temp_chr;
     temp_chr.hidden = 0;
     temp_chr.model = NULL;
-    load_chr_record(stream, &temp_chr);
+    load_chr_record(stream, &temp_chr, NULL);
   }
 }
 
@@ -1081,6 +1412,10 @@ bool load_props_state(StateStream *stream) {
   s16 projectileOwnerPropIndices[PROJECTILES_ARR_MAX];
   s16 projectileObjPropIndices[PROJECTILES_ARR_MAX];
 
+  for (i = 0; i < POS_DATA_ENTRY_LEN; i++) {
+    pendingChrAttachmentsValid[i] = FALSE;
+  }
+
   u32 totalPropsSize = read_u32(stream);
   u16 recordCount = read_u16(stream);
   s16 indexOfFirstEntry = read_u16(stream);
@@ -1145,6 +1480,13 @@ bool load_props_state(StateStream *stream) {
     savedPropRooms[2] = read_u8(stream);
     savedPropRooms[3] = read_u8(stream);
     s32 savedPropUnk30 = read_u32(stream);
+    ChrAllocationState savedChrAllocation;
+    bool hasChrAllocation = savedPropType == PROP_TYPE_CHR;
+    bool createdChrProp = FALSE;
+
+    if (hasChrAllocation) {
+      load_chr_allocation_state(stream, &savedChrAllocation);
+    }
 
     PropRecord *prop = get_prop_by_index(savedPropIndex);
 
@@ -1153,6 +1495,31 @@ bool load_props_state(StateStream *stream) {
         removePropAtIndex(c);
       }
       nextIndexToRemove = savedPropIndex + 1;
+
+      if (savedPropType == PROP_TYPE_CHR) {
+        // Rebuild CHRs even when the array slot is still occupied. This avoids
+        // retaining stale ChrRecord/Model allocations from the current world.
+        if (prop->type == PROP_TYPE_CHR &&
+            (prop->chr != NULL || (prop->flags & PROPFLAG_ENABLED))) {
+          destroy_chr_prop(prop, FALSE);
+        } else if (!clear_prop_for_replacement(prop)) {
+          practiceLogWarn(
+              "Cannot retain prop slot %d while replacing type %d with CHR",
+              savedPropIndex, prop->type);
+          skip_prop_data(stream, savedPropType);
+          return FALSE;
+        }
+
+        prop = create_chr_prop(prop, &savedChrAllocation, &savedPropPos,
+                               savedPropStanOffset);
+        if (prop == NULL) {
+          practiceLogWarn("Could not recreate CHR prop at index %d",
+                          savedPropIndex);
+          skip_prop_data(stream, savedPropType);
+          return FALSE;
+        }
+        createdChrProp = TRUE;
+      }
     }
 
     /* Only modify props which still exist while testing. */
@@ -1226,6 +1593,20 @@ bool load_props_state(StateStream *stream) {
     if (ADD_AND_REMOVE_PROPS || supportedType) {
       if (savedPropType == PROP_TYPE_VIEWER) {
         chrpropDeregisterRooms(prop);
+      }
+
+      // A weapon or hat which was on the ground after the save may currently
+      // be registered in rooms. Remove that registration before replacing its
+      // room bytes with the saved attached state.
+      if (!ADD_AND_REMOVE_PROPS &&
+          (savedPropType == PROP_TYPE_OBJ ||
+           savedPropType == PROP_TYPE_WEAPON) &&
+          prop->parent == NULL) {
+        PropRecord *saved_parent = get_prop_by_index(savedPropParentIdx);
+        if (saved_parent != NULL &&
+            saved_parent->type == PROP_TYPE_CHR) {
+          chrpropDeregisterRooms(prop);
+        }
       }
 
       prop->type = savedPropType;
@@ -1365,15 +1746,18 @@ bool load_props_state(StateStream *stream) {
       break;
 
     case PROP_TYPE_CHR:
-      // TODO: When loading can add or replace props, allocate the missing
-      // ChrRecord and Model and establish their back-pointers before loading.
-      // For now only restore onto the existing active character.
+      // Replacement mode rebuilt the PropRecord, ChrRecord, and Model before
+      // applying common fields. Testing mode reaches this only for a matching
+      // existing active CHR.
       if (prop->chr == NULL) {
         skip_prop_data(stream, PROP_TYPE_CHR);
       } else {
         load_chr_prop_spatial_state(prop, &savedPropPos,
-                                    savedPropStanOffset, savedPropRooms);
-        load_chr_record(stream, prop->chr);
+                                    savedPropStanOffset, savedPropRooms,
+                                    createdChrProp);
+        load_chr_record(stream, prop->chr,
+                        &pendingChrAttachments[savedPropIndex]);
+        pendingChrAttachmentsValid[savedPropIndex] = TRUE;
       }
       break;
 
@@ -1383,6 +1767,20 @@ bool load_props_state(StateStream *stream) {
     case PROP_TYPE_VIEWER:
     default:
       break;
+    }
+  }
+
+  // Resolve CHR equipment only after every referenced prop has loaded. In
+  // replacement mode indices refer to the rebuilt prop table; testing mode
+  // resolves only records which remain in their original slots.
+  for (i = 0; i < POS_DATA_ENTRY_LEN; i++) {
+    if (pendingChrAttachmentsValid[i]) {
+      PropRecord *chr_prop = ADD_AND_REMOVE_PROPS
+                                 ? get_prop_by_index(i)
+                                 : get_enabled_prop_by_index(i);
+      if (chr_prop != NULL && chr_prop->type == PROP_TYPE_CHR) {
+        restore_chr_attachments(chr_prop, &pendingChrAttachments[i]);
+      }
     }
   }
 

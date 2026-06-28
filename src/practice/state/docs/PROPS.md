@@ -54,10 +54,15 @@ typedef struct PropRecord
     StandTile         *stan; /* 0x14 - StandTile containing the prop, or NULL.
                               *        Serialized as a same-level byte offset, never an address. */
     f32                zDepth;                          /* 0x18 - Render depth sorting value */
-    struct PropRecord *parent;                          /* 0x1c - Parent pointer in attachment hierarchy */
-    struct PropRecord *child;                           /* 0x20 - Child pointer in attachment hierarchy */
-    struct PropRecord *prev;                            /* 0x24 - Previous prop in active list */
-    struct PropRecord *next;                            /* 0x28 - Next prop in active list */
+    struct PropRecord *parent;                          /* 0x1c - Attachment owner, or NULL for a root/
+                                                         *        active-list prop. CHR equipment points
+                                                         *        back to the owning character prop. */
+    struct PropRecord *child;                           /* 0x20 - Newest child in the attachment sibling
+                                                         *        chain, or NULL when there are no children. */
+    struct PropRecord *prev;                            /* 0x24 - Previous active prop when parent is NULL;
+                                                         *        previous attachment sibling otherwise. */
+    struct PropRecord *next;                            /* 0x28 - Next active prop when parent is NULL;
+                                                         *        next attachment sibling otherwise. */
     u8                 rooms[PROPRECORD_STAN_ROOM_LEN]; /* 0x2c - Up to three room IDs (0-254), followed
                                                          *        by 0xFF; all four bytes are serialized.
                                                          *        CHRs are deregistered before replacement
@@ -460,7 +465,9 @@ typedef struct ChrRecord
     f32         aimendrshoulder;                  /* 0x0154 */
     f32         aimendback;                       /* 0x0158 */
     f32         aimendsideback;                   /* 0x015C */
-    PropRecord *weapons_held[3];                  /* 0x0160 - Pointers to right, left, and hat props held */
+    PropRecord *weapons_held[3];                  /* 0x0160 - [0] right-hand weapon, [1] left-hand weapon,
+                                                   *          [2] legacy/unused slot. Entries are PropRecord
+                                                   *          pointers or NULL; serialized as prop indices. */
     union {
         s32     fireslot_word;                    /* 0x016C */
         s8      fireslot[2];                      /* 0x016C */
@@ -469,7 +476,8 @@ typedef struct ChrRecord
     int        *ptr_SEbuffer4;                    /* 0x0174 */
     int         field_178[2];                     /* 0x0178 */
     ChrRecord_f180 unk180[2];                     /* 0x0180 - Attack vector trajectory cache */
-    PropRecord *handle_positiondata_hat;          /* 0x01CC - Pointer to hat prop definition */
+    PropRecord *handle_positiondata_hat;          /* 0x01CC - Hat PropRecord attached to the head switch,
+                                                   *          or NULL; serialized as a prop index */
 } ChrRecord;
 ```
 
@@ -481,13 +489,15 @@ The implemented save/load slices restore
 `lastheartarget60`, `chrnum`, `flags2`, `timer60`, the
 `CHRHIDDEN_TIMER_ACTIVE` bit, `shotbondsum`, `shadecol`, and `nextcol`.
 The AI interpreter fields `ailist`, `aioffset`, `aireturnlist`, and `sleep`
-are also restored. `flags2` is restored completely; only the timer-active bit
-of `hidden` is restored. `targetTile` is relocated through a stable stand-tile
-offset, while `ailist` is relocated through a stable AI list ID. See `CHR.md`
-for the fields explicitly deferred and the active-prop-only assumption. CHR
-base `PropRecord` fields are not restored yet because position, stand tile, and
-room changes require coordinated character model, movement, and collision
-updates.
+are also restored. Spatial restoration covers the CHR prop's position, stand
+tile, rooms, model root transform, movement history, ground state, and
+collision bounds. Equipment restoration covers both hand slots, the legacy
+third slot when already valid, the hat pointer, CHR-owned prop hierarchy,
+model attachment nodes, and `RUNTIMEBITFLAG_HASOWNER`. `flags2` is restored
+completely; only the timer-active bit of `hidden` is restored. `targetTile` is
+relocated through a stable stand-tile offset, while `ailist` is relocated
+through a stable AI list ID. See `CHR.md` for the fields explicitly deferred
+and the gated replacement architecture.
 
 ---
 

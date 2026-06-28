@@ -11,7 +11,8 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 ## Current Goal
 
 Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
-six conservative field sets, including spatial and movement state, are
+seven conservative field sets, including spatial, movement, and equipment
+state, are
 implemented; supporting structures and the remaining restore surface are
 documented in `CHR.md`. Do not broaden the implementation without
 investigating and documenting the additional state coupling.
@@ -36,10 +37,6 @@ Read through this entire document and implement the first set of props in the "R
 - Right now the code only restores state to existing active props, but eventually once the code supports all types it will replace all props with the restored ones, so if you assume things based on this (like a pointer to a prop being correct already since we only restore to active props) then document it with a TODO comment explaining that it must be updated once that assumption is incorrect and we could remove existing props or add a new prop when loading state
 
 ## Remaining Groups
-
-Equipment and attachments
-weapons_held, handle_positiondata_hat, prop parent/child links, and corresponding weapon ownership.
-Serialize prop indices and resolve after all props load. Restoring only one side would leave broken attachment relationships.
 
 Action and model-animation state
 actiontype, the action union, and the live model animation identity, frame, speed, looping, interpolation, and transform state.
@@ -68,7 +65,13 @@ list should be cleared or reconstructed, not serialized as addresses.
 
 Allocation and recreation
 prop, model, missing CHR creation, and removal of characters absent from the save.
-Preserve existing back-pointers for now. Implement allocation only after every payload needed to initialize a new CHR is supported.
+The gated CHR path now tears down and recreates each saved CHR in its exact
+PropRecord slot using serialized body/head allocation metadata, and removes
+enabled CHRs absent from the save. `ADD_AND_REMOVE_PROPS` must remain false
+until equivalent retained-slot allocation/teardown exists for every prop type
+and every CHR payload required to initialize a new character is implemented.
+The complete generic attachment graph and free/active lists must be rebuilt as
+part of enabling it.
 
 ## Key Learnings
 

@@ -8,6 +8,23 @@ supporting structs stored in or referenced by that record.
 
 ## Current implementation boundary
 
+Every CHR payload starts with allocation metadata:
+
+```c
+ChrAllocationState::headnum; /* Signed head model index; -1 means body-owned head. */
+ChrAllocationState::bodynum; /* Signed body model index. */
+ChrAllocationState::heading; /* Initial model Y heading in radians. */
+```
+
+With `ADD_AND_REMOVE_PROPS == FALSE`, this header is consumed but the existing
+active CHR allocation is retained. With the flag enabled, the current CHR at
+the saved prop index is fully torn down, a body/head model is allocated with
+`retrieve_header_for_body_and_head`, and `init_GUARDdata_with_set_values`
+establishes a new `ChrRecord`/`Model`/`PropRecord` relationship before any
+payload fields are applied. CHRs in enabled prop slots absent from the save are
+cleaned up and released. The flag remains disabled until all prop types and
+the remaining CHR initialization state are supported.
+
 The first CHR serialization slice is implemented. It restores only the
 following scalar behavior parameters:
 
@@ -212,6 +229,71 @@ they form a diamond centered on `prop->pos` with points at plus/minus
 `chrwidth` on each axis. Saving the live values also preserves any
 action-specific bound update until the engine calculates them again.
 
+The seventh CHR serialization slice restores equipment and its attachment
+ownership:
+
+```c
+ChrRecord::weapons_held[0];        /* Right-hand weapon prop, or NULL. */
+ChrRecord::weapons_held[1];        /* Left-hand weapon prop, or NULL. */
+ChrRecord::weapons_held[2];        /* Legacy unused slot; normally NULL. */
+ChrRecord::handle_positiondata_hat;/* Headwear prop, or NULL. */
+ChrAttachmentIndices::weapon_model[2]; /* Weapon model IDs for recreation. */
+ChrAttachmentIndices::weaponnum[2];    /* ITEM_IDS values for recreation. */
+ChrAttachmentIndices::weapon_flags[2]; /* Object setup flags for recreation. */
+ChrAttachmentIndices::hat_model;       /* Hat model ID for recreation. */
+ChrAttachmentIndices::hat_flags;       /* Hat object setup flags. */
+PropRecord::parent;                /* Owning CHR prop for attached equipment. */
+PropRecord::child/prev/next;       /* CHR child/sibling attachment links. */
+ObjectRecord::runtime_bitflags;    /* RUNTIMEBITFLAG_HASOWNER ownership bit. */
+Model::attachedto;                 /* Owning CHR model. */
+Model::attachedto_objinst;         /* Hand/head model switch node. */
+```
+
+The four CHR pointers are encoded as signed prop-array indices: `-1` means
+`NULL`, while `0..POS_DATA_ENTRY_LEN-1` identifies a `PropRecord`. They are
+resolved only after all prop payloads have loaded. Held equipment is normally
+disabled and therefore does not appear as a standalone enabled-prop payload.
+A hand entry is accepted when the indexed prop still has a matching live
+`PROPDEF_COLLECTABLE` object/model and a correct object-to-prop back-pointer.
+The hat entry additionally requires `PROPDEF_HAT`. Missing, mismatched, reused,
+or duplicate targets are resolved to `NULL`.
+
+Held equipment is disabled while attached, so it is not guaranteed to have a
+standalone enabled-prop record in the save. The allocation metadata therefore
+also stores each hand weapon's object model ID, `ITEM_IDS` value, and complete
+object setup flags, plus the hat model ID and flags. In replacement mode, a
+missing weapon is recreated with `chrGiveWeapon` and a missing hat with
+`hatCreateForChr`; the returned props replace the unresolved saved indices.
+Testing mode never invokes these constructors.
+
+`weapons_held[0]` and `[1]` are selected by `GUNRIGHT` (`0`) and `GUNLEFT`
+(`1`). `weapons_held[2]` is initialized to `NULL` and has no readers or
+writers beyond initialization in the current decompilation. It is retained
+for layout compatibility and restored only if the referenced prop is already
+a child of the CHR; no attachment-node semantics are inferred for it.
+`handle_positiondata_hat` is the independently used headwear pointer.
+
+An attached prop uses `parent` for the owning CHR. In this state, `prev` and
+`next` are attachment-sibling links and `parent->child` points to the newest
+child. When `parent` is `NULL`, `prev` and `next` instead belong to the global
+active-prop list. Restoration therefore uses `chrpropDetach`,
+`chrpropDelist`, `chrpropActivate`, and `chrpropReparent` rather than assigning
+these pointers independently. Equipment held after the save but absent from
+the saved slots is detached and returned to the active list; saved equipment
+which was dropped later is removed from its rooms and active list before being
+reattached.
+
+The equipment model's `attachedto` points to the live CHR model.
+`attachedto_objinst` selects model switch `3` for the right hand, `5` for the
+left hand, and `6` for the head/hat. Attached objects also receive
+`RUNTIMEBITFLAG_HASOWNER` (`0x00080000`) and are disabled while parented.
+Reattaching a weapon dropped after the save clears stale
+`RUNTIMEBITFLAG_DEPOSIT`/`RUNTIMEBITFLAG_EMBEDDED` state because the associated
+projectile and embedment pools have already been restored independently.
+Detaching clears ownership and the attachment node, then activates and enables
+the prop in the world. Together these fields make rendering, dropping, firing,
+and hat-hit handling agree with the CHR pointer fields.
+
 The payload is implemented in `practice_states_chr.c` and dispatched by
 `practice_states_props.c`. For CHRs, only the spatial subset of the common
 `PropRecord` payload (`pos`, `stan`, and `rooms`) is restored. The remaining
@@ -219,9 +301,9 @@ common fields stay live until their dependencies are implemented.
 
 Do not include the following in that slice:
 
-- `damage`, `maxdamage`, action data, `actiontype`, held weapons, live model
-  animation state, or flags. Those values have coupled state which must be
-  investigated and restored together.
+- `damage`, `maxdamage`, action data, `actiontype`, live model animation state,
+  or flags. Those values have coupled state which must be investigated and
+  restored together.
 - The complete `hidden` and `chrflags` fields. They contain action-coupled and
   destructive bits which must be restored with character action, model,
   movement, damage, and allocation state.
@@ -230,10 +312,12 @@ Do not include the following in that slice:
   Its address is process-local and must be reconstructed or cleared with
   allocation/model support.
 
-TODO: CHR loading currently assumes the saved character still has the same
-enabled `PropRecord`, `ChrRecord`, and `Model`. Preserve their existing
-back-pointers rather than serializing addresses. Revisit this when loading can
-remove destroyed characters or create missing characters.
+The normal testing path still requires the same enabled CHR prop to exist.
+The gated replacement path does not retain its `ChrRecord` or `Model`
+back-pointers: it recreates them first, then applies spatial/model state and
+resolves attachments against the rebuilt prop table. Allocation currently uses
+zero model spawn flags, so model variants represented only by spawn flags must
+be added to `ChrAllocationState` before `ADD_AND_REMOVE_PROPS` is enabled.
 
 ## Action discriminator
 
