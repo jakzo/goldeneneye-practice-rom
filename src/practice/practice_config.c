@@ -29,19 +29,27 @@ struct PracticeConfig practice = {
 #define SETTINGS_X 55
 #define OPTIONS_X 224
 #define OPTIONS_COLUMN_WIDTH 72
-#define SETTINGS_LINE_HEIGHT 13
+#define SETTINGS_LINE_HEIGHT 15
 #define SETTINGS_VIEW_TOP 135
 #define SETTINGS_BOTTOM_MARGIN 20
 #define SETTINGS_FOCUS_MARGIN SETTINGS_LINE_HEIGHT
-#define SETTINGS_HEADING_GAP 7
+#define SETTINGS_HEADING_GAP 10
+#define SETTINGS_SCROLLBAR_X 45
+#define SETTINGS_SCROLLBAR_WIDTH 4
+#define SETTINGS_SCROLLBAR_MARKER_HEIGHT 2
+#define SETTINGS_SCROLLBAR_INSET 4
+#define SETTINGS_SCROLLBAR_MIN_THUMB_HEIGHT 6
+#define SETTINGS_SCROLLBAR_HALF_WIDTH (SETTINGS_SCROLLBAR_WIDTH / 2)
+#define SETTINGS_SCROLLBAR_COLOR 0x00000055
 #define MAX_OPTION_COLUMNS 2
 #define SLIDER_REPEAT_DELAY 15
 #define SLIDER_REPEAT_RATE 1
 #define CONFIG_MAGIC 0x47434647 /* "GCFG" */
 #define CONFIG_HEADER_SIZE (sizeof(u32) * 3)
 #define TEXT_COLOR 0x000000FF
+#define TEXT_DISABLED_COLOR 0x000000cc
 #define TEXT_SELECTED_GLOW 0x999999FF
-#define FOCUSED_OPTION_BOX_COLOR 72
+#define FOCUSED_OPTION_BOX_COLOR 0xddbb33aa
 
 struct StoredPracticeConfig {
   u32 magic;
@@ -545,7 +553,7 @@ static Gfx *print_option(Gfx *gdl, s32 x, s32 y, const char *text, s32 selected,
                 (struct fontchar *)ptrFontZurichBoldChars,
                 (struct font *)ptrFontZurichBold, 0);
     gdl = microcode_constructor_related_to_menus(
-        gdl, x - 4, y - 2, x + width + 4, y + SETTINGS_LINE_HEIGHT - 1,
+        gdl, x - 4, y - 1, x + width + 4, y + SETTINGS_LINE_HEIGHT,
         FOCUSED_OPTION_BOX_COLOR);
   }
 
@@ -555,9 +563,9 @@ static Gfx *print_option(Gfx *gdl, s32 x, s32 y, const char *text, s32 selected,
                           viGetX(), viGetY(), 0, 0);
   }
 
-  return frontPrintText(gdl, &x, &y, (s8 *)text, ptrFontZurichBoldChars,
-                        ptrFontZurichBold, TEXT_COLOR, viGetX(), viGetY(), 0,
-                        0);
+  return frontPrintText(
+      gdl, &x, &y, (s8 *)text, ptrFontZurichBoldChars, ptrFontZurichBold,
+      selected ? TEXT_COLOR : TEXT_DISABLED_COLOR, viGetX(), viGetY(), 0, 0);
 }
 
 static Gfx *render_setting(Gfx *gdl, const struct PracticeSetting *setting,
@@ -630,10 +638,71 @@ static Gfx *render_settings(Gfx *gdl, const char *heading,
   return gdl;
 }
 
+static Gfx *render_scrollbar(Gfx *gdl, s32 stage_id) {
+  s32 setting_count = visible_setting_count(stage_id);
+  s32 view_bottom = practice_config_menu_view_bottom();
+  s32 view_height = view_bottom - SETTINGS_VIEW_TOP + 1;
+  s32 content_bottom;
+  s32 content_height;
+  s32 max_scroll;
+  s32 scroll;
+  s32 track_top;
+  s32 track_height;
+  s32 thumb_height;
+  s32 thumb_travel;
+  s32 thumb_y;
+
+  if (setting_count == 0 || view_height <= 0) {
+    return gdl;
+  }
+
+  content_bottom =
+      setting_row_y(setting_count - 1, stage_id) + SETTINGS_LINE_HEIGHT;
+  content_height = content_bottom - SETTINGS_VIEW_TOP;
+  if (content_height <= view_height) {
+    return gdl;
+  }
+
+  track_top = SETTINGS_VIEW_TOP + SETTINGS_SCROLLBAR_INSET;
+  track_height = view_height - SETTINGS_SCROLLBAR_INSET * 2;
+  thumb_height = track_height * view_height / content_height;
+  if (thumb_height < SETTINGS_SCROLLBAR_MIN_THUMB_HEIGHT) {
+    thumb_height = SETTINGS_SCROLLBAR_MIN_THUMB_HEIGHT;
+  }
+
+  max_scroll = content_height - view_height;
+  scroll = -s_scroll_offset;
+  if (scroll < 0) {
+    scroll = 0;
+  } else if (scroll > max_scroll) {
+    scroll = max_scroll;
+  }
+  thumb_travel = track_height - thumb_height;
+  thumb_y = track_top + scroll * thumb_travel / max_scroll;
+
+  gdl = microcode_constructor_related_to_menus(
+      gdl, SETTINGS_SCROLLBAR_X - SETTINGS_SCROLLBAR_HALF_WIDTH,
+      SETTINGS_VIEW_TOP - SETTINGS_SCROLLBAR_HALF_WIDTH,
+      SETTINGS_SCROLLBAR_X + SETTINGS_SCROLLBAR_HALF_WIDTH,
+      SETTINGS_VIEW_TOP + SETTINGS_SCROLLBAR_HALF_WIDTH,
+      SETTINGS_SCROLLBAR_COLOR);
+  gdl = microcode_constructor_related_to_menus(
+      gdl, SETTINGS_SCROLLBAR_X - SETTINGS_SCROLLBAR_HALF_WIDTH,
+      view_bottom - SETTINGS_SCROLLBAR_HALF_WIDTH,
+      SETTINGS_SCROLLBAR_X + SETTINGS_SCROLLBAR_HALF_WIDTH,
+      view_bottom + SETTINGS_SCROLLBAR_HALF_WIDTH, SETTINGS_SCROLLBAR_COLOR);
+  return microcode_constructor_related_to_menus(
+      gdl, SETTINGS_SCROLLBAR_X - SETTINGS_SCROLLBAR_HALF_WIDTH, thumb_y,
+      SETTINGS_SCROLLBAR_X + SETTINGS_SCROLLBAR_HALF_WIDTH,
+      thumb_y + thumb_height - 1, SETTINGS_SCROLLBAR_COLOR);
+}
+
 Gfx *practice_config_menu_render(Gfx *gdl, s32 stage_id) {
   s32 level_count = level_setting_count(stage_id);
   s32 visible_index = 0;
   s32 y = s_objectives_bottom + SETTINGS_HEADING_GAP + s_scroll_offset;
+
+  gdl = render_scrollbar(gdl, stage_id);
 
   if (level_count > 0) {
     gdl = render_settings(gdl, "LEVEL SETTINGS:", s_level_settings,
