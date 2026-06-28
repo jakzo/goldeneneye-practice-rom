@@ -1,6 +1,7 @@
 #ifndef PRACTICE_STATES_H
 #define PRACTICE_STATES_H
 
+#include "../practice_sram.h"
 #include "practice_states_stream.h"
 #include <bondtypes.h>
 #include <ultra64.h>
@@ -21,8 +22,6 @@
  * (which alters offsets of all subsequent fields).
  */
 #define SAVE_STATE_VERSION 5
-#define SAVE_STATE_SRAM_OFFSET 0x200
-
 typedef struct {
   u32 magic;
   u16 version;

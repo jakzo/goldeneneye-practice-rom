@@ -8,20 +8,22 @@
 #define STATE_DAM 4
 // --- end test cases ---
 
+#ifndef PRACTICE_TEST_BOOT_LEVEL
 #if TEST_CASE == STATE_DOOR || TEST_CASE == STATE_GRENADE
 #define PRACTICE_TEST_BOOT_LEVEL LEVELID_RUNWAY
 #elif TEST_CASE == STATE_BUNKER
 #define PRACTICE_TEST_BOOT_LEVEL LEVELID_BUNKER1
 #elif TEST_CASE == STATE_DAM
 #define PRACTICE_TEST_BOOT_LEVEL LEVELID_DAM
-#else
+#elif defined(PRACTICE_BOOT_LEVEL_OVERRIDE)
 #define PRACTICE_TEST_BOOT_LEVEL BOOT_LEVELID
 #endif
+#endif
 
+#ifndef PRACTICE_TEST_SKIP_INTRO
 #if defined(DEV) || defined(TEST_CASE)
 #define PRACTICE_TEST_SKIP_INTRO TRUE
-#else
-#define PRACTICE_TEST_SKIP_INTRO FALSE
+#endif
 #endif
 
 void practice_tests_tick(void);

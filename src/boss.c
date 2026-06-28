@@ -172,6 +172,7 @@ void bossInitMainthreadData(void)
     init_save_state_system();
     fileValidateSaves();
     practice_unlock_default_profile();
+    practice_config_load();
 #endif
     osCreateMesgQueue(&bossmq, &bossmsg, 1);
 

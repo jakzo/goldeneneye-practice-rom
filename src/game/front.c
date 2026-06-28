@@ -7354,6 +7354,9 @@ void load_briefing_text_for_stage(void)
 //********************************************************************************************************
 void init_menu0A_briefing(void)
 {
+#ifdef PRACTICE_ROM
+    practice_config_menu_reset();
+#endif
     tab_next_selected = 0;
     tab_prev_selected = 0;
     final_menu_briefing_page = 5;
@@ -7376,6 +7379,8 @@ void interface_menu0A_briefing(void)
 {
 #ifdef PRACTICE_ROM
     practice_briefing_menu_tick();
+    practice_config_menu_tick(selected_stage,
+                              current_menu_briefing_page == BRIEFING_TITLE);
 #endif
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
@@ -7481,6 +7486,12 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
     u8* text;
     s32 v1;
 
+#ifdef PRACTICE_ROM
+    if (arg3 == 0)
+    {
+        arg1 += practice_config_menu_scroll_offset();
+    }
+#endif
     sp98 = 0;
     var_fp = 0;
     i = 0;
@@ -7502,7 +7513,16 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
 
             sp8C = 0x37;
             sp88 = (sp94 * var_fp) + arg1 + (i*0);
+#ifdef PRACTICE_ROM
+            if (arg3 != 0 ||
+                (sp88 >= 0x87 &&
+                 sp88 + sp94 <= practice_config_menu_view_bottom()))
+            {
+                DL = frontPrintText(DL, &sp8C, &sp88, (s8*)arg2, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+            }
+#else
             DL = frontPrintText(DL, &sp8C, &sp88, (s8*)arg2, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+#endif
 
             sp8C = 0x4B;
             sp88 = (sp94 * var_fp) + arg1 + (i*0);
@@ -7518,7 +7538,16 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
                 sub_GAME_7F0AEB64(0x140, (s8*)text, (s8*)arg2, ptrFontZurichBoldChars, ptrFontZurichBold);
             }
 
+#ifdef PRACTICE_ROM
+            if (arg3 != 0 ||
+                (sp88 >= 0x87 &&
+                 sp88 + sp94 <= practice_config_menu_view_bottom()))
+            {
+                DL = frontPrintText(DL, &sp8C, &sp88, (s8*)arg2,  ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+            }
+#else
             DL = frontPrintText(DL, &sp8C, &sp88, (s8*)arg2,  ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+#endif
 
             if (arg3)
             {
@@ -7547,6 +7576,13 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
         }
     }
 
+#ifdef PRACTICE_ROM
+    if (arg3 == 0)
+    {
+        practice_config_menu_set_objectives_bottom(
+            sp98 == 0 ? arg1 : arg1 + (sp94 * var_fp));
+    }
+#endif
     return DL;
 }
 
@@ -7603,11 +7639,30 @@ Gfx *constructor_menu0A_briefing(Gfx *DL)
 
     spC08 = 0x37;
     spC04 = 0x8F;
+#ifdef PRACTICE_ROM
+    if (current_menu_briefing_page == BRIEFING_TITLE)
+    {
+        spC04 += practice_config_menu_scroll_offset();
+    }
+#endif
+#ifdef PRACTICE_ROM
+    if (current_menu_briefing_page != BRIEFING_TITLE ||
+        (spC04 >= 0x87 &&
+         spC04 + 0xD <= practice_config_menu_view_bottom()))
+    {
+        DL = frontPrintText(DL, &spC08, &spC04, (s8*)spC0C, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    }
+#else
     DL = frontPrintText(DL, &spC08, &spC04, (s8*)spC0C, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+#endif
 
     if (current_menu_briefing_page == BRIEFING_TITLE)
     {
         DL = print_objectives_and_status_to_menu(DL, 0xA7, (char*)&sp4C, 0);
+#ifdef PRACTICE_ROM
+        DL = practice_config_menu_render(
+            DL, mission_folder_setup_entries[briefingpage].stage_id);
+#endif
     }
     else
     {
@@ -13124,5 +13179,3 @@ Gfx * menu_jump_constructor_handler(Gfx *DL)
 
     return DL;
 }
-
-

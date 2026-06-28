@@ -204,6 +204,9 @@ void emu_log(const char *fmt, ...) {
   va_list args;
   BufWriter bw;
 
+  if (!g_emu_log_initialized)
+    emu_log_init();
+
   if (!g_usb_available && !g_isv_available)
     return;
 
