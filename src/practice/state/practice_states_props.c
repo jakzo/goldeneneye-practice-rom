@@ -50,9 +50,7 @@ typedef union {
   TankRecord tank;
 } TempObjectRecord;
 
-static ChrAttachmentIndices
-    pendingChrAttachments[POS_DATA_ENTRY_LEN];
-static bool pendingChrAttachmentsValid[POS_DATA_ENTRY_LEN];
+
 
 static void retain_prop_from_free_list(PropRecord *prop) {
   PropRecord *current = ptr_obj_pos_list_final_entry;
@@ -1411,6 +1409,8 @@ bool load_props_state(StateStream *stream) {
   u32 pi;
   s16 projectileOwnerPropIndices[PROJECTILES_ARR_MAX];
   s16 projectileObjPropIndices[PROJECTILES_ARR_MAX];
+  ChrAttachmentIndices pendingChrAttachments[POS_DATA_ENTRY_LEN];
+  bool pendingChrAttachmentsValid[POS_DATA_ENTRY_LEN];
 
   for (i = 0; i < POS_DATA_ENTRY_LEN; i++) {
     pendingChrAttachmentsValid[i] = FALSE;

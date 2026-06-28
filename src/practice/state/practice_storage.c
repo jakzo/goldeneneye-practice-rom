@@ -4,8 +4,10 @@
 
 extern void *memcpy(void *dst, const void *src, size_t count);
 
+#ifdef SRAM_CONSISTENCY_CHECK
 static u8 debug_data[20000];
 static u8 debug_written[20000];
+#endif
 
 /**
  * SRAM-backed storage implementation.
@@ -26,6 +28,7 @@ void storage_write(StorageCursor *cur, const void *data, u32 size) {
   sram_write(cur->offset, (void *)data, size);
   cur->offset += size;
 
+#ifdef SRAM_CONSISTENCY_CHECK
   // Save data in memory to compare when reading
   if (cur->offset <= sizeof(debug_data)) {
     memcpy(&debug_data[cur->offset - size], data, size);
@@ -37,12 +40,14 @@ void storage_write(StorageCursor *cur, const void *data, u32 size) {
       debug_written[off + idx] = 1;
     }
   }
+#endif
 }
 
 void storage_read(StorageCursor *cur, void *data, u32 size) {
   sram_read(cur->offset, data, size);
   cur->offset += size;
 
+#ifdef SRAM_CONSISTENCY_CHECK
   // Check consistency of storage against data saved in memory
   if (cur->offset <= sizeof(debug_data)) {
     u32 i;
@@ -64,4 +69,5 @@ void storage_read(StorageCursor *cur, void *data, u32 size) {
       }
     }
   }
+#endif
 }
