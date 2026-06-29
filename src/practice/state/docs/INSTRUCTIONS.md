@@ -11,7 +11,7 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 ## Current Goal
 
 Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
-seventeen conservative field sets, including character/model configuration,
+eighteen conservative field sets, including character/model configuration,
 spatial, movement, equipment, scripted/model actions, and combat actions, are
 implemented; supporting structures and the remaining restore surface are
 documented in `CHR.md`. Do not broaden the implementation without investigating
@@ -40,8 +40,8 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 ## Remaining Groups
 
 Damage and lifecycle
-damage, maxdamage, fadealpha, chrflags, remaining hidden bits, and die/dead/argh actions.
-Whole chrflags and hidden restoration belongs here. Their bits can trigger initialization, firing, movement, freezing, item drops, or character removal.
+damage, maxdamage, fadealpha, dynamic chrflags, remaining hidden bits, and die/dead/argh actions.
+The remaining chrflags and hidden bits belong here or with allocation. They can trigger initialization, cloning, one-shot events, freezing, item drops, or character removal.
 
 Allocation and recreation
 prop, model, missing CHR creation, and removal of characters absent from the save.

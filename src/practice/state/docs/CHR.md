@@ -1119,6 +1119,44 @@ retained prop, model, or previous random choice.
 leave a retained character's current damage already above it without the
 corresponding fatal action transition.
 
+The eighteenth CHR serialization slice restores this durable behavior/render
+configuration subset of `chrflags`:
+
+```c
+CHRSTART_FORCENOBLOOD;           /* Suppress blood effects. */
+CHRFLAG_CAN_SHOOT_CHRS;          /* Permit firing at other characters. */
+CHRFLAG_NO_AUTOAIM;              /* Exclude the character from Bond's autoaim. */
+CHRFLAG_LOCK_Y_POS;              /* Keep the character's vertical position fixed. */
+CHRFLAG_NO_SHADOW;               /* Do not render the character's floor shadow. */
+CHRFLAG_IGNORE_ANIM_TRANSLATION; /* Ignore animation root translation. */
+CHRFLAG_IMPACT_ALWAYS;           /* Apply fallback fatal-hit impact force. */
+CHRFLAG_INCREASE_RUNNING_SPEED;  /* Select the faster running speed. */
+CHRFLAG_COUNT_DEATH_AS_CIVILIAN; /* Count a future death as a civilian casualty. */
+CHRFLAG_CULL_USING_HITBOX;       /* Use model hitbox bounds for view culling. */
+```
+
+Each value is an independent Boolean bit and arbitrary combinations are valid.
+The bits control future damage visuals, targeting eligibility, movement/model
+translation, rendering, fatal-hit impulse selection, travel speed, and mission
+death classification. None is a pointer, one-shot latch, action discriminator,
+or allocation result. They are restored as one masked 32-bit value, preserving
+every unlisted `chrflags` bit.
+
+The mask works for both retained and replacement-mode CHRs. A replacement CHR
+receives defaults from `init_GUARDdata_with_set_values` and then the saved
+configuration bits, without depending on the previous allocation. Spatial,
+fall-speed, model-animation, and collision state used by the lock-Y,
+ignore-translation, and hitbox-culling options are already restored by their
+existing slices.
+
+`CHRFLAG_INVINCIBLE` remains with damage state because changing it determines
+whether intervening hits accumulated damage. `CHRFLAG_CLONE` and
+`CHRFLAG_HAS_BEEN_ON_SCREEN` remain with allocation/recreation because they
+gate character spawning. Initialization, near-miss, damage-event, hidden,
+forced-action-tick, fade-mode, crushed-death, unknown, and other one-shot bits
+also remain deferred. `CHRFLAG_02000000` continues to be restored only for
+`ACT_ANIM`, where it is the sneeze-SFX trigger latch.
+
 ### `act_surprised`
 
 ```c

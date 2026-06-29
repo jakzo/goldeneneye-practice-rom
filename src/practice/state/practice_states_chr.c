@@ -16,6 +16,13 @@ extern PathRecord *pathFindById(s32 ID);
 
 #define CHR_FLINCH_HIDDEN_MASK CHRHIDDEN_RAND_FLINCH_MASK
 
+#define CHR_BEHAVIOR_FLAGS_MASK                                               \
+  (CHRSTART_FORCENOBLOOD | CHRFLAG_CAN_SHOOT_CHRS | CHRFLAG_NO_AUTOAIM |     \
+   CHRFLAG_LOCK_Y_POS | CHRFLAG_NO_SHADOW |                                  \
+   CHRFLAG_IGNORE_ANIM_TRANSLATION | CHRFLAG_IMPACT_ALWAYS |                 \
+   CHRFLAG_INCREASE_RUNNING_SPEED | CHRFLAG_COUNT_DEATH_AS_CIVILIAN |        \
+   CHRFLAG_CULL_USING_HITBOX)
+
 typedef struct FiringAnimationTableRef {
   struct weapon_firing_animation_table *table;
   u8 count;
@@ -855,6 +862,7 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_f32(stream, chr->chrheight);
   write_u8(stream, (u8)chr->flinchcnt);
   write_u16(stream, chr->hidden & CHR_FLINCH_HIDDEN_MASK);
+  write_u32(stream, chr->chrflags & CHR_BEHAVIOR_FLAGS_MASK);
 
   write_u8(stream, (u8)chr->numarghs);
   write_u8(stream, (u8)chr->numclosearghs);
@@ -994,6 +1002,9 @@ void load_chr_record(StateStream *stream, ChrRecord *chr,
   chr->hidden =
       (chr->hidden & ~CHR_FLINCH_HIDDEN_MASK) |
       ((u16)read_u16(stream) & CHR_FLINCH_HIDDEN_MASK);
+  chr->chrflags =
+      (chr->chrflags & ~CHR_BEHAVIOR_FLAGS_MASK) |
+      (read_u32(stream) & CHR_BEHAVIOR_FLAGS_MASK);
 
   chr->numarghs = (s8)read_u8(stream);
   chr->numclosearghs = (s8)read_u8(stream);

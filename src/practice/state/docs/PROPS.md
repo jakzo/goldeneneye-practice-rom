@@ -489,7 +489,8 @@ The implemented save/load slices restore
 `lastseetarget60`, `lastknowntargetpos`, `targetTile`, `seen_bond_time`, and
 `lastheartarget60`, `chrnum`, `flags2`, `timer60`, the
 `CHRHIDDEN_TIMER_ACTIVE` bit, `flinchcnt`, the four
-`CHRHIDDEN_RAND_FLINCH_MASK` direction bits, `shotbondsum`, combat action/aiming state,
+`CHRHIDDEN_RAND_FLINCH_MASK` direction bits, the durable behavior/render
+`chrflags` subset documented in `CHR.md`, `shotbondsum`, combat action/aiming state,
 `firecount`, `aimendcount`, all eight shoulder/back angles, `fireslot_word`,
 `field_178`, both `unk180` beam caches, combat/moving hidden bits, `shadecol`,
 and `nextcol`. Dynamic `ptr_SEbuffer3`/`ptr_SEbuffer4` sound nodes are stopped
