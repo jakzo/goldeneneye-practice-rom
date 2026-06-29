@@ -60,6 +60,21 @@ void practice_tests_tick(void) {
     }
 #elif TEST_CASE == STATE_GRENADE
     if (after_frames(20)) {
+      emu_log("TRIGGER_SAVE");
+      save_game_state();
+      emu_log("SAVE_DONE");
+    } else if (after_frames(20)) {
+      emu_log("START_MOVING_LEFT");
+      g_SimulatedButtons |= L_CBUTTONS;
+    } else if (after_frames(20)) {
+      emu_log("GRENADES_PICKED_UP");
+      emu_log("STOP_MOVING_LEFT");
+      g_SimulatedButtons &= ~L_CBUTTONS;
+    } else if (after_frames(20)) {
+      emu_log("TRIGGER_LOAD");
+      load_game_state();
+      emu_log("LOAD_DONE");
+    } else if (after_frames(20)) {
       emu_log("START_MOVING_LEFT");
       g_SimulatedButtons |= L_CBUTTONS;
     } else if (after_frames(20)) {
@@ -100,6 +115,20 @@ void practice_tests_tick(void) {
       emu_log("TRIGGER_LOAD");
       load_game_state();
       emu_log("LOAD_DONE");
+    } else if (after_frames(30)) {
+      emu_log("MOVE_FORWARD");
+      g_SimulatedButtons |= U_CBUTTONS;
+    } else if (after_frames(10)) {
+      g_SimulatedButtons &= ~U_CBUTTONS;
+    } else if (after_frames(20)) {
+      emu_log("OPEN_DOOR");
+      g_SimulatedButtons |= B_BUTTON;
+    } else if (after_frames(2)) {
+      g_SimulatedButtons &= ~B_BUTTON;
+    } else if (after_frames(30)) {
+      emu_log("TRIGGER_SAVE");
+      save_game_state();
+      emu_log("SAVE_DONE");
     } else if (after_frames(2)) {
       emu_log("TEST_COMPLETE");
     }

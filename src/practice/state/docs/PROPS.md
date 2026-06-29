@@ -546,7 +546,7 @@ The serializer restores every non-pointer field and all 40 `ExplosionPart` recor
 
 The associated `g_NumExplosionEntries` and `g_NumSmokeEntries` counters are also restored. Both normally range from 0 to 6 and control the short camera-shake sequence triggered by an explosion.
 
-As with smoke, an explosion which has completely expired since the save is skipped rather than recreated while prop allocation remains disabled.
+An explosion present in the save but missing from the current world is recreated in its saved slot using a free `g_ExplosionBuffer` entry (`create_explosion_prop`); one present in the world but absent from the save is removed. Explosions that were mid-effect are restored in place.
 
 ---
 
@@ -578,7 +578,7 @@ struct Smoke
 
 `smoke_type` selects the duration, spawn/dissolve rates, size, rotation rates, colour, and cloud propagation duration from `g_SmokeTypes`. Values 0-7 are selected by explosion definitions; 8 and 9 are short-lived effects produced by damaged objects; 10 is the large cloud created while the tank fires. `duration` normally runs from 0 through the selected type's configured lifetime. Each part's `size` is the active marker, while `alpha` and `count` control its fade.
 
-The serializer restores `duration`, `smoke_type`, and all ten `SmokePart` values. It deliberately preserves `Smoke::prop` rather than serializing its address: the live smoke prop and its fixed buffer slot already point to each other, and restoring an address is unnecessary and unsafe. With prop allocation still disabled, a smoke cloud which has completely expired since the save is skipped rather than recreated.
+The serializer restores `duration`, `smoke_type`, and all ten `SmokePart` values. It deliberately preserves `Smoke::prop` rather than serializing its address: the live smoke prop and its fixed buffer slot already point to each other, and restoring an address is unnecessary and unsafe. A smoke cloud present in the save but missing from the current world is recreated in its saved slot using a free `g_SmokeBuffer` entry (`create_smoke_prop`); one present in the world but absent from the save is removed.
 
 ## Save/Load Guidelines
 

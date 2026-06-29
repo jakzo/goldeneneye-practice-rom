@@ -16,14 +16,14 @@ ChrAllocationState::bodynum; /* Signed body model index. */
 ChrAllocationState::heading; /* Initial model Y heading in radians. */
 ```
 
-With `ADD_AND_REMOVE_PROPS == FALSE`, this header is consumed but the existing
-active CHR allocation is retained. With the flag enabled, the current CHR at
-the saved prop index is fully torn down, a body/head model is allocated with
-`retrieve_header_for_body_and_head`, and `init_GUARDdata_with_set_values`
+This header is consumed before the destination `ChrRecord` exists. The current
+CHR at the saved prop index is fully torn down, a body/head model is allocated
+with `retrieve_header_for_body_and_head`, and `init_GUARDdata_with_set_values`
 establishes a new `ChrRecord`/`Model`/`PropRecord` relationship before any
 payload fields are applied. CHRs in enabled prop slots absent from the save are
-cleaned up and released. The flag remains disabled until all prop types and
-the remaining CHR initialization state are supported.
+cleaned up and released. Add/remove of props on load is now enabled for every
+prop type (see `INSTRUCTIONS.md` → Key Learnings → "Adding/Removing Props on
+Load").
 
 The first CHR serialization slice is implemented. It restores only the
 following scalar behavior parameters:
@@ -59,13 +59,11 @@ nonnegative IDs. A negative head ID is accepted by character-spawn paths to
 request a body-compatible head choice; once a character is spawned, its record
 normally contains the selected concrete head ID.
 
-These IDs must describe the allocated model rather than merely label it. In
-testing mode the loader retains the same active character/model allocation and
-restores the IDs on that record. In `ADD_AND_REMOVE_PROPS` replacement mode,
+These IDs must describe the allocated model rather than merely label it.
 `ChrAllocationState` is read before a destination character exists and the
 saved body/head pair is passed to `retrieve_header_for_body_and_head`; only
-then is the newly allocated `ChrRecord` populated. Replacement mode therefore
-does not assume that a pre-existing model matches the saved IDs.
+then is the newly allocated `ChrRecord` populated. The loader therefore does
+not assume that a pre-existing model matches the saved IDs.
 
 `chrwidth` is the radius used for character/world collision, path obstruction,
 movement probes, and the four-point `collision_bounds` diamond. It initializes
@@ -419,12 +417,12 @@ Do not include the following in the implemented slices:
   hit-reaction actions `ACT_ARGH`/`ACT_PREARGH`, and the death actions
   `ACT_DIE`/`ACT_DEAD` are now restored by the nineteenth through twenty-first
   slices; see below.)
-The normal testing path still requires the same enabled CHR prop to exist.
-The gated replacement path does not retain its `ChrRecord` or `Model`
-back-pointers: it recreates them first, then applies spatial/model state and
-resolves attachments against the rebuilt prop table. Allocation currently uses
-zero model spawn flags, so model variants represented only by spawn flags must
-be added to `ChrAllocationState` before `ADD_AND_REMOVE_PROPS` is enabled.
+The replacement path does not retain its `ChrRecord` or `Model` back-pointers:
+it recreates them first, then applies spatial/model state and resolves
+attachments against the rebuilt prop table. Allocation currently uses zero
+model spawn flags, so model variants represented only by spawn flags are not
+yet distinguished by `ChrAllocationState`; add them there if such variants are
+found to load incorrectly.
 
 ## Action discriminator
 
@@ -904,11 +902,11 @@ declared members are inactive overlay bytes and are not serialized.
 
 The common model payload restores the exact throw frame, end frame, play speed,
 flip/hand selection, and interpolation state. The equipment slice restores the
-selected grenade prop and its model attachment. In `ADD_AND_REMOVE_PROPS`
-replacement mode, a grenade attachment that does not have a standalone saved
-prop is recreated from its serialized model ID, `ITEM_GRENADE` weapon ID, and
-object flags before the next character tick. This avoids relying on either a
-retained held-prop pointer or an existing character model.
+selected grenade prop and its model attachment. A grenade attachment that does
+not have a standalone saved prop is recreated from its serialized model ID,
+`ITEM_GRENADE` weapon ID, and object flags before the next character tick. This
+avoids relying on either a retained held-prop pointer or an existing character
+model.
 
 At animation frame 20 the grenade becomes visible, at frame 61 its weapon timer
 is armed, and at frame 119 it is marked dropped and

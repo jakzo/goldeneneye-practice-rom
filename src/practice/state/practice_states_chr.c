@@ -929,8 +929,8 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
       chr->model->obj->RootNode != NULL &&
       (chr->model->obj->RootNode->Opcode & 0xff) == MODELNODE_OPCODE_HEADER;
 
-  // Allocation metadata is consumed before the destination ChrRecord exists
-  // when ADD_AND_REMOVE_PROPS is enabled.
+  // Allocation metadata is consumed before the destination ChrRecord exists so
+  // a missing CHR can be recreated in its saved slot before the payload loads.
   write_u8(stream, (u8)chr->headnum);
   write_u8(stream, (u8)chr->bodynum);
   write_f32(stream, has_model_transform ? getsubroty(chr->model) : 0.0f);
