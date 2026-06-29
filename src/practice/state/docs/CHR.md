@@ -343,15 +343,16 @@ Model play-speed state;      /* Current/target play rate and interpolation clock
 Model root RW data;          /* Pointer-free animation translation/heading state. */
 ```
 
-The supported discriminators are `ACT_INIT`, `ACT_STAND`, `ACT_KNEEL`,
-`ACT_ANIM`, `ACT_ATTACK`, `ACT_ATTACKWALK`, `ACT_ATTACKROLL`, `ACT_SIDESTEP`,
+Every `ACT_TYPE` discriminator is now supported: `ACT_INIT`, `ACT_STAND`,
+`ACT_KNEEL`, `ACT_ANIM`, `ACT_DIE`, `ACT_DEAD`, `ACT_ARGH`, `ACT_PREARGH`,
+`ACT_ATTACK`, `ACT_ATTACKWALK`, `ACT_ATTACKROLL`, `ACT_SIDESTEP`,
 `ACT_JUMPOUT`, `ACT_RUNPOS`, `ACT_PATROL`, `ACT_GOPOS`,
 `ACT_SURRENDER`, `ACT_LOOKATTARGET`, `ACT_SURPRISED`, `ACT_STARTALARM`,
 `ACT_THROWGRENADE`, `ACT_TURNDIR`, `ACT_TEST`, `ACT_BONDINTRO`, `ACT_BONDDIE`,
-`ACT_BONDMULTI`, and `ACT_NULL`. Saving any other action writes no
-action/model payload, and
-loading it leaves the destination action live; its union cannot safely be
-interpreted until the corresponding batch is implemented.
+`ACT_BONDMULTI`, and `ACT_NULL`. `is_supported_chr_action` still rejects a
+combat or `ACT_BONDMULTI` action whose `animfloats` pointer does not map to a
+registered firing-table row; such an action writes no action/model payload and
+loading leaves the destination action live.
 
 The action records occupy one 120-byte union. The payload does not copy those
 120 bytes wholesale: doing so would waste substantial SRAM per CHR and would
@@ -410,12 +411,14 @@ common fields stay live until their dependencies are implemented.
 
 Do not include the following in the implemented slices:
 
-- `damage`, `maxdamage`, unsupported action-union data, unsupported
-  `actiontype` values, or lifecycle flags. Those values have coupled state
-  which must be investigated and restored together.
-- The complete `hidden` and `chrflags` fields. They contain action-coupled and
-  destructive bits which must be restored with character action, model,
-  movement, damage, and allocation state.
+- The complete `hidden` and `chrflags` fields. They still contain destructive
+  and allocation-coupled bits (item drops, character removal, freezing, cloning,
+  initialization, and AI-event latches) which must be restored with the
+  allocation/teardown work, not speculatively. Only the documented safe subsets
+  are restored. (`damage`, `maxdamage`, `fadealpha`, `CHRFLAG_INVINCIBLE`, the
+  hit-reaction actions `ACT_ARGH`/`ACT_PREARGH`, and the death actions
+  `ACT_DIE`/`ACT_DEAD` are now restored by the nineteenth through twenty-first
+  slices; see below.)
 The normal testing path still requires the same enabled CHR prop to exist.
 The gated replacement path does not retain its `ChrRecord` or `Model`
 back-pointers: it recreates them first, then applies spatial/model state and
@@ -564,48 +567,53 @@ and are deliberately omitted from the save payload.
 
 ### `act_die`
 
-State for an active death animation, including sound-trigger frames and
-post-impact motion.
+State for an active death animation, including sound-trigger frames. Restored by
+the twenty-first slice.
 
 ```c
 struct act_die {
-    s32     notifychrindex;     /* 0x00 - Character ID to notify; 0 means none. */
+    s32     notifychrindex;     /* 0x00 - Guard-notification scan cursor (aliased as act_init.padding[0]). */
     f32     thudframe1;         /* 0x04 - First thud SFX frame; -1 after firing/none. */
     f32     thudframe2;         /* 0x08 - Second thud SFX frame; -1 after firing/none. */
-    f32     timeextra;          /* 0x0c - Duration of extra impact movement. */
-    f32     elapseextra;        /* 0x10 - Elapsed extra-movement time. */
-    coord3d extraspeed;         /* 0x14 - Extra velocity from the killing impact. */
-    s16     drcarollimagedelay; /* 0x20 - Delay before special death imagery. */
+    f32     timeextra;          /* 0x0c - Written at death entry; never read. Not serialized. */
+    f32     elapseextra;        /* 0x10 - Written at death entry; never read. Not serialized. */
+    coord3d extraspeed;         /* 0x14 - Written at death entry; never read. Not serialized. */
+    s16     drcarollimagedelay; /* 0x20 - No reader or writer in GoldenEye. Not serialized. */
 };
 ```
 
-TODO: Confirm the units and terminal value for `drcarollimagedelay`, and whether
-`notifychrindex == 0` is always the no-notification sentinel.
+The destructive death consequences (item drops, body count, `chrStopFiring`)
+fire in `triggered_on_shot_hit` when the character *enters* `ACT_DIE`, so
+restoring this already-active action does not replay them. Only the
+guard-scan cursor and the two one-shot thud frames are live tick state and are
+serialized; the post-impact-motion fields are write-only and omitted.
 
 ### `act_dead`
 
-Corpse lifetime state.
+Corpse lifetime state. Restored by the twenty-first slice.
 
 ```c
 struct act_dead {
-    bool allowfade;      /* 0x00 - Boolean; nonzero permits corpse fading. */
-    bool allowreap;      /* 0x04 - Boolean; nonzero permits corpse removal. */
-    s32  reaptimer;      /* 0x08 - Countdown/time controlling removal. */
-    s32  fadetimer;      /* 0x0c - Countdown/time controlling alpha fade. */
-    s32  notifychrindex; /* 0x10 - Character ID to notify, or no-target sentinel. */
+    bool allowfade;      /* 0x00 - Set to -1 on entry; this word is the fade timer (act_init.padding[0]). */
+    bool allowreap;      /* 0x04 - No reader. Not serialized. */
+    s32  reaptimer;      /* 0x08 - No reader. Not serialized. */
+    s32  fadetimer;      /* 0x0c - No reader. Not serialized. */
+    s32  notifychrindex; /* 0x10 - No reader. Not serialized. */
 };
 ```
 
-Loading this record alone is unsafe: fade alpha, model state, held items, prop
-existence, and mission death bookkeeping are coupled to it.
+Despite the named fields, `chrlvTickDead` drives the corpse entirely through the
+offset-0 word read as `int act_init.padding[0]`: `-1` immediately after entry,
+then an up-counter from which `fadealpha` is derived and which triggers
+`CHRHIDDEN_REMOVE` at `CHRLV_TICK_DEAD_CHECK`. Only that word is serialized.
 
 ### `act_argh`
 
-Immediate damage-flinch state.
+Immediate damage-flinch state. Restored by the twentieth slice.
 
 ```c
 struct act_argh {
-    s32 notifychrindex; /* 0x00 - Character ID to notify; initialized to 0. */
+    s32 notifychrindex; /* 0x00 - Guard-notification scan cursor (aliased as act_init.padding[0]). */
     s32 unk30;          /* 0x04 - Global tick captured for the hit reaction. */
 };
 ```
@@ -613,7 +621,8 @@ struct act_argh {
 ### `act_preargh`
 
 Deferred hit information consumed when the character transitions into a flinch
-or death action.
+or death action. Restored by the twentieth slice; `unk044` has no reader or
+writer in GoldenEye and is omitted.
 
 ```c
 struct act_preargh {
@@ -1149,13 +1158,153 @@ fall-speed, model-animation, and collision state used by the lock-Y,
 ignore-translation, and hitbox-culling options are already restored by their
 existing slices.
 
-`CHRFLAG_INVINCIBLE` remains with damage state because changing it determines
-whether intervening hits accumulated damage. `CHRFLAG_CLONE` and
+`CHRFLAG_INVINCIBLE` is deferred to the damage slice (the nineteenth slice
+below) because changing it determines whether intervening hits accumulated
+damage, so it is restored together with `damage`/`maxdamage`. `CHRFLAG_CLONE` and
 `CHRFLAG_HAS_BEEN_ON_SCREEN` remain with allocation/recreation because they
 gate character spawning. Initialization, near-miss, damage-event, hidden,
 forced-action-tick, fade-mode, crushed-death, unknown, and other one-shot bits
 also remain deferred. `CHRFLAG_02000000` continues to be restored only for
 `ACT_ANIM`, where it is the sneeze-SFX trigger latch.
+
+The nineteenth CHR serialization slice restores the damage scalars and the
+render fade level:
+
+```c
+ChrRecord::fadealpha; /* Render alpha, 0x00 transparent .. 0xFF opaque. */
+ChrRecord::damage;    /* Accumulated damage; character dies at maxdamage. */
+ChrRecord::maxdamage; /* Death threshold, normally health_mod * 4.0. */
+CHRFLAG_INVINCIBLE;   /* Gates whether incoming hits accumulate damage. */
+```
+
+`damage` and `maxdamage` are restored together as a pair so the
+`damage < maxdamage` invariant a live character maintains is preserved. The
+death transition is driven by `chrlvTick` comparing `damage >= maxdamage`;
+restoring only the threshold (as the eighteenth slice warned) could leave a
+retained character's current damage already above a newly applied lower
+threshold and trigger an unintended death. Restoring both from the same saved,
+internally consistent snapshot avoids that: a save of a live character always
+has `damage < maxdamage`, and the same-ROM/same-level load restriction keeps the
+health modifier baked into `maxdamage` valid. `damage` is `0.0` initially, may be
+driven negative by `chrAddHealth` (armour/healing), and is read by the AI
+health-threshold commands and the explosion/hit paths. `maxdamage` initializes
+to `get_007_health_mod() * 4.0` and is otherwise a passive threshold. Neither is
+a pointer, latch, or action discriminator.
+
+`fadealpha` is a self-contained eight-bit render alpha that initializes to
+`0xFF` (opaque). For any living character — and therefore for every supported
+`actiontype` the action slices restore — it stays `0xFF`, so restoring it is
+exact. It is only driven below `0xFF` by the `ACT_DEAD` corpse-fade tick, which
+recomputes it every frame from the death timer, and by the player fade in
+`bondview`. Restoring it therefore never strands a stale value: a corpse's tick
+overwrites it on the next frame from its own (still deferred) death-timer state.
+Because it carries no pointer and is recomputed wherever it is dynamic, it is
+restored here rather than waiting on the death/fade batch.
+
+`CHRFLAG_INVINCIBLE` (`0x00000010`) is restored in the same masked operation as
+the behaviour-flags slice but with the damage scalars, because it determines
+whether incoming hits accumulate `damage`. It is a plain behaviour bit that the
+gunfire and explosion damage paths test before applying damage, and AI scripts
+may set or clear it; it carries no pointer, allocation result, or one-shot
+semantics. Restoring it with `damage`/`maxdamage` keeps the "did intervening hits
+count" decision consistent with the saved snapshot. Every other unlisted
+`chrflags` bit is preserved.
+
+These values work identically for retained and replacement-mode CHRs: a
+replacement CHR receives `damage = 0`, `maxdamage = health_mod * 4.0`,
+`fadealpha = 0xFF`, and default flags from `init_GUARDdata_with_set_values`, then
+the saved values, without depending on the previous allocation.
+
+The one-shot/destructive `chrflags` and the remaining `hidden` bits remain
+deferred. They drive item drops, character removal, freezing, and cloning, and
+must be restored together with allocation/teardown state.
+
+The twentieth CHR serialization slice restores the two hit-reaction actions:
+
+```c
+ChrRecord::act_argh.notifychrindex; /* Guard-notification scan cursor (offset 0). */
+ChrRecord::act_argh.unk30;    /* g_GlobalTimer captured when the flinch began. */
+ChrRecord::act_preargh.pos;   /* World-space hit position. */
+ChrRecord::act_preargh.unk038;/* Relative shot angle, radians. */
+ChrRecord::act_preargh.unk03c;/* Model hit-part index. */
+ChrRecord::act_preargh.unk040;/* ITEM_IDS weapon ID that caused the hit. */
+```
+
+`ACT_ARGH` is the immediate damage flinch and `ACT_PREARGH` is a hit deferred
+until the current animation finishes. They are restorable now that the damage
+scalars and the common model-animation controller are restored, because their
+ticks branch only on that already-restored state and on `g_GlobalTimer` (restored
+by the global-state payload).
+
+`chrlvTickArgh` advances the flinch by the model frame and, on completion,
+returns the character to an idle or kneeling animation, then calls
+`chrlvIterateGuardSeeShotDie`. That helper reuses the offset-0 union word —
+named `act_argh.notifychrindex` here, but aliased as `act_init.padding[0]` — as a
+persistent cursor that scans up to four nearby guards per tick and stamps their
+`chrseeshot`. Because it is live cross-tick state (not a write-only field, as an
+earlier draft assumed), it is serialized so the scan resumes from the saved
+position instead of re-alerting from guard zero. `act_argh.unk30` is read only
+inside `triggered_on_shot_hit`, when a *new* hit lands mid-flinch, to decide
+whether to merge animations; it is an absolute `g_GlobalTimer` tick and is
+serialized as such.
+
+`chrlvTickPreArgh` waits for the model animation to finish and then calls
+`triggered_on_shot_hit` with the four stored hit parameters, which re-resolves the
+hit into either `ACT_ARGH` (survives) or `ACT_DIE` (dies) using the restored
+`damage`/`maxdamage`. All four fields are pointer-free scalars (a coordinate, an
+angle, and two enum/index integers). Re-running this resolution after a load is
+correct: the save captured the pre-resolution state, so the deferred hit is
+applied exactly once, exactly as it would have been without the save.
+`act_preargh.unk044` has no reader or writer in GoldenEye and is omitted.
+
+Both actions save the common model-animation payload like the other supported
+actions, so the flinch/defer animation, frame, and interpolation resume exactly.
+
+The twenty-first CHR serialization slice restores the two death actions, which
+completes coverage of every `ACT_TYPE`:
+
+```c
+ChrRecord::act_die.notifychrindex; /* Guard-notification scan cursor (offset 0). */
+ChrRecord::act_die.thudframe1;     /* First body-thud SFX frame; -1.0 once played. */
+ChrRecord::act_die.thudframe2;     /* Second body-thud SFX frame; -1.0 once played. */
+ChrRecord::act_init.padding[0];    /* ACT_DEAD corpse fade/reap timer (offset 0). */
+```
+
+The destructive consequences of *becoming* dead — `chrStopFiring`, item drops,
+mission body-count bookkeeping, and the choice of death animation — all happen in
+`triggered_on_shot_hit` at the moment the character *enters* `ACT_DIE`, not in the
+`ACT_DIE`/`ACT_DEAD` ticks. A character that is already in one of these actions
+has therefore already produced those one-shot effects, so restoring the action
+discriminator and tick state does not replay them. This is what makes the death
+actions restorable without the still-deferred allocation/teardown work; only
+character *creation/removal* itself remains gated.
+
+`chrlvTickDie` plays a one-shot thud SFX when the model frame reaches
+`thudframe1`/`thudframe2`, then sets that frame to `-1.0` so it never replays.
+Both frames are restored exactly, so a load before the frame still fires the SFX
+once and a load after it stays silent. The death animation's completion (read
+from the restored model controller) drives the transition to `ACT_DEAD` via
+`chrlvActorFadeAway`. `act_die.notifychrindex` is the same offset-0 guard-scan
+cursor described for `ACT_ARGH`. `timeextra`, `elapseextra`, `extraspeed`, and
+`drcarollimagedelay` are written at death entry but never read, so they are
+omitted.
+
+`chrlvTickDead` is driven entirely by the offset-0 word, which the engine reads
+as `act_init.padding[0]` (the same storage as the `bool act_dead.allowfade`). It
+holds `-1` immediately after `chrlvActorFadeAway` enters `ACT_DEAD`, then counts
+up by `g_ClockTimer`; `fadealpha` is recomputed from it each frame, and reaching
+`CHRLV_TICK_DEAD_CHECK` sets `CHRHIDDEN_REMOVE` to retire the corpse. Restoring
+this single word resumes the corpse fade at the exact saved point; the already
+restored `fadealpha` matches, and the removal threshold fires on schedule. The
+other named `act_dead` fields (`allowreap`, `reaptimer`, `fadetimer`,
+`notifychrindex`) have no readers and are not serialized. Because the offset-0
+word is accessed as a full `int`, the loader uses `act_init.padding[0]` rather
+than the narrower `bool` alias.
+
+`CHRHIDDEN_REMOVE` itself is still not serialized: it is re-set by the corpse tick
+when the restored timer crosses the threshold, and actual removal proceeds on a
+later tick through the engine's normal path. Item-drop and removal *bits* remain
+in the deferred hidden/flag group.
 
 ### `act_surprised`
 

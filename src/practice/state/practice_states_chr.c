@@ -16,6 +16,8 @@ extern PathRecord *pathFindById(s32 ID);
 
 #define CHR_FLINCH_HIDDEN_MASK CHRHIDDEN_RAND_FLINCH_MASK
 
+#define CHR_DAMAGE_FLAGS_MASK CHRFLAG_INVINCIBLE
+
 #define CHR_BEHAVIOR_FLAGS_MASK                                               \
   (CHRSTART_FORCENOBLOOD | CHRFLAG_CAN_SHOOT_CHRS | CHRFLAG_NO_AUTOAIM |     \
    CHRFLAG_LOCK_Y_POS | CHRFLAG_NO_SHADOW |                                  \
@@ -107,6 +109,10 @@ static bool is_supported_action(ACT_TYPE actiontype) {
   case ACT_STAND:
   case ACT_KNEEL:
   case ACT_ANIM:
+  case ACT_DIE:
+  case ACT_DEAD:
+  case ACT_ARGH:
+  case ACT_PREARGH:
   case ACT_ATTACK:
   case ACT_ATTACKWALK:
   case ACT_ATTACKROLL:
@@ -245,6 +251,36 @@ static void save_supported_action(StateStream *stream, const ChrRecord *chr) {
     write_u8(stream, chr->act_anim.idleOnEnd != 0);
     write_u8(stream, chr->act_anim.noTranslate != 0);
     write_u8(stream, (chr->chrflags & CHRFLAG_02000000) != 0);
+    break;
+  case ACT_DIE:
+    // notifychrindex (offset 0) is reused by chrlvIterateGuardSeeShotDie as the
+    // guard-notification scan cursor. The thud frames fire one-shot SFX and are
+    // set to -1.0 once played, so restoring them prevents replay. timeextra,
+    // elapseextra, extraspeed, and drcarollimagedelay are written at death entry
+    // but never read, so they are omitted.
+    write_u32(stream, chr->act_die.notifychrindex);
+    write_f32(stream, chr->act_die.thudframe1);
+    write_f32(stream, chr->act_die.thudframe2);
+    break;
+  case ACT_DEAD:
+    // The corpse fade/reap timer lives in the offset-0 word, which the engine
+    // reads as act_init.padding[0] (aliasing the bool act_dead.allowfade): -1
+    // means "just entered", and >=0 is the elapsed fade timer that fadealpha is
+    // derived from. The other named act_dead fields are never read.
+    write_u32(stream, chr->act_init.padding[0]);
+    break;
+  case ACT_ARGH:
+    // notifychrindex (offset 0) is reused by chrlvIterateGuardSeeShotDie as the
+    // guard-notification scan cursor while ACT_ARGH/ACT_DIE are active.
+    write_u32(stream, chr->act_argh.notifychrindex);
+    write_u32(stream, chr->act_argh.unk30);
+    break;
+  case ACT_PREARGH:
+    // unk044 has no reader or writer in GoldenEye and is omitted.
+    write_bytes(stream, &chr->act_preargh.pos, sizeof(coord3d));
+    write_f32(stream, chr->act_preargh.unk038);
+    write_u32(stream, chr->act_preargh.unk03c);
+    write_u32(stream, chr->act_preargh.unk040);
     break;
   case ACT_ATTACK:
     write_u16(stream, (u16)get_firing_animation_id(chr->act_attack.animfloats));
@@ -399,6 +435,55 @@ static void load_supported_action(StateStream *stream, ChrRecord *chr) {
       } else {
         chr->chrflags &= ~CHRFLAG_02000000;
       }
+    }
+    break;
+  }
+  case ACT_DIE: {
+    s32 notifychrindex = read_u32(stream);
+    f32 thudframe1 = read_f32(stream);
+    f32 thudframe2 = read_f32(stream);
+
+    if (chr != NULL) {
+      chr->act_die.notifychrindex = notifychrindex;
+      chr->act_die.thudframe1 = thudframe1;
+      chr->act_die.thudframe2 = thudframe2;
+    }
+    break;
+  }
+  case ACT_DEAD: {
+    s32 fade_timer = read_u32(stream);
+
+    if (chr != NULL) {
+      chr->act_init.padding[0] = fade_timer;
+    }
+    break;
+  }
+  case ACT_ARGH: {
+    s32 notifychrindex = read_u32(stream);
+    s32 unk30 = read_u32(stream);
+
+    if (chr != NULL) {
+      chr->act_argh.notifychrindex = notifychrindex;
+      chr->act_argh.unk30 = unk30;
+    }
+    break;
+  }
+  case ACT_PREARGH: {
+    coord3d pos;
+    f32 unk038;
+    s32 unk03c;
+    s32 unk040;
+
+    read_bytes(stream, &pos, sizeof(coord3d));
+    unk038 = read_f32(stream);
+    unk03c = read_u32(stream);
+    unk040 = read_u32(stream);
+
+    if (chr != NULL) {
+      chr->act_preargh.pos = pos;
+      chr->act_preargh.unk038 = unk038;
+      chr->act_preargh.unk03c = unk03c;
+      chr->act_preargh.unk040 = unk040;
     }
     break;
   }
@@ -864,6 +949,11 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
   write_u16(stream, chr->hidden & CHR_FLINCH_HIDDEN_MASK);
   write_u32(stream, chr->chrflags & CHR_BEHAVIOR_FLAGS_MASK);
 
+  write_u8(stream, chr->fadealpha);
+  write_f32(stream, chr->damage);
+  write_f32(stream, chr->maxdamage);
+  write_u32(stream, chr->chrflags & CHR_DAMAGE_FLAGS_MASK);
+
   write_u8(stream, (u8)chr->numarghs);
   write_u8(stream, (u8)chr->numclosearghs);
   write_u8(stream, chr->random);
@@ -1005,6 +1095,13 @@ void load_chr_record(StateStream *stream, ChrRecord *chr,
   chr->chrflags =
       (chr->chrflags & ~CHR_BEHAVIOR_FLAGS_MASK) |
       (read_u32(stream) & CHR_BEHAVIOR_FLAGS_MASK);
+
+  chr->fadealpha = read_u8(stream);
+  chr->damage = read_f32(stream);
+  chr->maxdamage = read_f32(stream);
+  chr->chrflags =
+      (chr->chrflags & ~CHR_DAMAGE_FLAGS_MASK) |
+      (read_u32(stream) & CHR_DAMAGE_FLAGS_MASK);
 
   chr->numarghs = (s8)read_u8(stream);
   chr->numclosearghs = (s8)read_u8(stream);

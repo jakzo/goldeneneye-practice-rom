@@ -11,10 +11,14 @@ Above all, make sure you investigate thoroughly to fully understand where pieces
 ## Current Goal
 
 Currently we want to complete `PROP_TYPE_CHR`, the final prop type. The first
-eighteen conservative field sets, including character/model configuration,
-spatial, movement, equipment, scripted/model actions, and combat actions, are
-implemented; supporting structures and the remaining restore surface are
-documented in `CHR.md`. Do not broaden the implementation without investigating
+twenty-one conservative field sets are implemented and now cover every
+`ACT_TYPE` action discriminator, plus character/model configuration, spatial,
+movement, equipment, scripted/model/combat/hit-reaction/death actions, the
+damage scalars/render alpha/invincibility, and the documented safe subsets of
+`hidden`/`chrflags`. Supporting structures and the remaining restore surface are
+documented in `CHR.md`. The remaining CHR work is the gated allocation/teardown
+path (`ADD_AND_REMOVE_PROPS`) and the destructive/AI-event `hidden`/`chrflags`
+bits that go with it. Do not broaden the implementation without investigating
 and documenting the additional state coupling.
 
 ### Next Goals
@@ -39,9 +43,16 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining Groups
 
-Damage and lifecycle
-damage, maxdamage, fadealpha, dynamic chrflags, remaining hidden bits, and die/dead/argh actions.
-The remaining chrflags and hidden bits belong here or with allocation. They can trigger initialization, cloning, one-shot events, freezing, item drops, or character removal.
+Lifecycle flags (deferred with allocation)
+The remaining `chrflags` and `hidden` bits. All CHR actions, the damage scalars,
+render alpha, and `CHRFLAG_INVINCIBLE` are now implemented (nineteenth–twenty-first
+slices; see `CHR.md`). What is left are the bits that trigger initialization,
+cloning, one-shot item drops, freezing, character removal, and the per-frame
+AI-event latches (e.g. `CHRHIDDEN_DROP_HELD_ITEMS`, `CHRHIDDEN_REMOVE`,
+`CHRFLAG_INIT`, `CHRFLAG_CLONE`, `CHRFLAG_WAS_HIT`/`WAS_DAMAGED`). These are
+either re-derived each frame or coupled to allocation/teardown, so they must be
+handled together with the gated allocation work below rather than restored
+speculatively.
 
 Allocation and recreation
 prop, model, missing CHR creation, and removal of characters absent from the save.
