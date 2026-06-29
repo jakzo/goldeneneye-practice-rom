@@ -654,17 +654,33 @@ void setupCctv(s32 arg0, CCTVRecord *arg1, s32 cmdindex)
 
     domakedefaultobj(arg0, (struct ObjectRecord*)arg1, cmdindex);
 
+#ifdef PRACTICE_ROM
+    if (arg1->cctv_pad >= 0)
+#else
     if (arg1->pad >= 0)
+#endif
     {
         temp_a2 = (struct coord3d*)arg1->model->obj->Switches[0]->Data;
 
+#ifdef PRACTICE_ROM
+        if (isNotBoundPad(arg1->cctv_pad))
+#else
         if (isNotBoundPad(arg1->pad))
+#endif
         {
+#ifdef PRACTICE_ROM
+            sp50 = &g_CurrentSetup.pads[arg1->cctv_pad];
+#else
             sp50 = &g_CurrentSetup.pads[arg1->pad];
+#endif
         }
         else
         {
+#ifdef PRACTICE_ROM
+            sp50 = (struct PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(arg1->cctv_pad)];
+#else
             sp50 = (struct PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(arg1->pad)];
+#endif
         }
 
         sp44.f[0] = temp_a2->f[0];
@@ -6289,5 +6305,4 @@ other_obj_expand:
 
 
 #endif
-
 
