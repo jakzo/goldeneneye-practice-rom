@@ -1061,6 +1061,189 @@ static void load_smoke_record(StateStream *stream, struct Smoke *smoke) {
   read_bytes(stream, smoke->parts, sizeof(smoke->parts));
 }
 
+// Scorch marks (explosion burn circles) and bullet holes live in global ring
+// buffers, not in PropRecords. Both are saved sparsely: the ring cursor plus the
+// active entries (identified by a non-negative room id) at their exact buffer
+// index, so future scorches/impacts keep filling the ring in the same order.
+//
+// Scorch geometry is entirely world space; its `model` pointer is unused by the
+// renderer. Bullet impacts attached to an object/door reference it through its
+// prop index (resolved after every prop is restored); world-surface impacts have
+// no prop. Must run after the prop table is rebuilt so those indices resolve.
+static void save_decals_state(StateStream *stream) {
+  s32 i;
+  u16 count;
+
+  write_u32(stream, g_NumScorchEntries);
+  count = 0;
+  if (g_ScorchBuffer != NULL) {
+    for (i = 0; i < SCORCH_BUFFER_LEN; i++) {
+      if (g_ScorchBuffer[i].roomid >= 0) {
+        count++;
+      }
+    }
+  }
+  write_u16(stream, count);
+  if (g_ScorchBuffer != NULL) {
+    for (i = 0; i < SCORCH_BUFFER_LEN; i++) {
+      struct Scorch *scorch = &g_ScorchBuffer[i];
+      if (scorch->roomid < 0) {
+        continue;
+      }
+      write_u16(stream, (u16)i);
+      write_u16(stream, scorch->roomid);
+      write_u8(stream, scorch->unk02);
+      write_u8(stream, scorch->unk03);
+      write_bytes(stream, &scorch->pos, sizeof(coord3d));
+      write_f32(stream, scorch->explosion_size);
+      write_bytes(stream, scorch->vertex_list, sizeof(scorch->vertex_list));
+    }
+  }
+
+  write_u32(stream, g_NumImpactEntries);
+  count = 0;
+  if (g_BulletImpactBuffer != NULL) {
+    for (i = 0; i < BULLET_IMPACT_BUFFER_LEN; i++) {
+      if (g_BulletImpactBuffer[i].room >= 0) {
+        count++;
+      }
+    }
+  }
+  write_u16(stream, count);
+  if (g_BulletImpactBuffer != NULL) {
+    for (i = 0; i < BULLET_IMPACT_BUFFER_LEN; i++) {
+      struct BulletImpact *impact = &g_BulletImpactBuffer[i];
+      if (impact->room < 0) {
+        continue;
+      }
+      write_u16(stream, (u16)i);
+      write_u16(stream, impact->room);
+      write_u16(stream, impact->impact_type);
+      write_u32(stream, impact->unk04);
+      write_bytes(stream, impact->vertex_list, sizeof(impact->vertex_list));
+      write_u16(stream, get_prop_index(impact->prop));
+      write_u8(stream, impact->model_render_pos_index);
+      write_u8(stream, impact->room_clear_flag);
+      write_u16(stream, impact->unk4E);
+    }
+  }
+}
+
+static void load_decals_state(StateStream *stream) {
+  s32 i;
+  u16 count;
+
+  g_NumScorchEntries = read_u32(stream);
+  if (g_ScorchBuffer != NULL) {
+    for (i = 0; i < SCORCH_BUFFER_LEN; i++) {
+      g_ScorchBuffer[i].roomid = -1;
+    }
+  }
+  count = read_u16(stream);
+  for (i = 0; i < count; i++) {
+    struct Scorch tmp;
+    u16 index = read_u16(stream);
+    tmp.roomid = read_u16(stream);
+    tmp.unk02 = read_u8(stream);
+    tmp.unk03 = read_u8(stream);
+    read_bytes(stream, &tmp.pos, sizeof(coord3d));
+    tmp.explosion_size = read_f32(stream);
+    read_bytes(stream, tmp.vertex_list, sizeof(tmp.vertex_list));
+    tmp.model = NULL;
+    if (g_ScorchBuffer != NULL && index < SCORCH_BUFFER_LEN) {
+      g_ScorchBuffer[index] = tmp;
+    }
+  }
+
+  g_NumImpactEntries = read_u32(stream);
+  if (g_BulletImpactBuffer != NULL) {
+    for (i = 0; i < BULLET_IMPACT_BUFFER_LEN; i++) {
+      g_BulletImpactBuffer[i].room = -1;
+    }
+  }
+  count = read_u16(stream);
+  for (i = 0; i < count; i++) {
+    struct BulletImpact tmp;
+    u16 index = read_u16(stream);
+    s16 propIdx;
+    tmp.room = read_u16(stream);
+    tmp.impact_type = read_u16(stream);
+    tmp.unk04 = read_u32(stream);
+    read_bytes(stream, tmp.vertex_list, sizeof(tmp.vertex_list));
+    propIdx = (s16)read_u16(stream);
+    tmp.model_render_pos_index = read_u8(stream);
+    tmp.room_clear_flag = read_u8(stream);
+    tmp.unk4E = read_u16(stream);
+
+    // Drop an impact whose owning prop is gone: its stale model_render_pos_index
+    // would index a freed/replaced model on the next render.
+    if (propIdx >= 0) {
+      tmp.prop = get_enabled_prop_by_index(propIdx);
+      if (tmp.prop == NULL) {
+        tmp.room = -1;
+      }
+    } else {
+      tmp.prop = NULL;
+    }
+
+    if (g_BulletImpactBuffer != NULL && index < BULLET_IMPACT_BUFFER_LEN) {
+      g_BulletImpactBuffer[index] = tmp;
+    }
+  }
+}
+
+// Airborne explosion shrapnel/debris (`g_FlyingParticlesBuffer`, ring cursor
+// `g_NumParticleEntries`, capacity `max_particles`). Each entry is a fully
+// world-space, pointer-free quad; `unk00 > 0` marks it live and counts down its
+// lifetime, while `vertex_list` holds the per-particle local geometry/colour set
+// once at spawn (the renderer rebuilds the world matrix from position/rotation
+// each frame). Saved sparsely: only live particles, each whole struct at its
+// exact buffer index, so they resume drifting and fading identically.
+static void save_flying_particles_state(StateStream *stream) {
+  s32 i;
+  u16 count = 0;
+
+  write_u32(stream, g_NumParticleEntries);
+  if (g_FlyingParticlesBuffer != NULL) {
+    for (i = 0; i < max_particles; i++) {
+      if (g_FlyingParticlesBuffer[i].unk00 > 0) {
+        count++;
+      }
+    }
+  }
+  write_u16(stream, count);
+  if (g_FlyingParticlesBuffer != NULL) {
+    for (i = 0; i < max_particles; i++) {
+      if (g_FlyingParticlesBuffer[i].unk00 > 0) {
+        write_u16(stream, (u16)i);
+        write_bytes(stream, &g_FlyingParticlesBuffer[i],
+                    sizeof(struct FlyingParticles));
+      }
+    }
+  }
+}
+
+static void load_flying_particles_state(StateStream *stream) {
+  s32 i;
+  u16 count;
+
+  g_NumParticleEntries = read_u32(stream);
+  if (g_FlyingParticlesBuffer != NULL) {
+    for (i = 0; i < max_particles; i++) {
+      g_FlyingParticlesBuffer[i].unk00 = 0;
+    }
+  }
+  count = read_u16(stream);
+  for (i = 0; i < count; i++) {
+    struct FlyingParticles tmp;
+    u16 index = read_u16(stream);
+    read_bytes(stream, &tmp, sizeof(struct FlyingParticles));
+    if (g_FlyingParticlesBuffer != NULL && index < (u32)max_particles) {
+      g_FlyingParticlesBuffer[index] = tmp;
+    }
+  }
+}
+
 static void load_object_subtype(StateStream *stream, ObjectRecord *obj) {
   switch (obj->type) {
   case PROPDEF_PROP:
@@ -1662,6 +1845,11 @@ bool save_props_state(StateStream *stream) {
     return FALSE;
   }
 
+  // Scorch marks and bullet holes reference props by index, so they are saved
+  // after every prop record (and the players) has been written.
+  save_decals_state(stream);
+  save_flying_particles_state(stream);
+
   /* Patch the props header with the real size and record count. */
   u32 totalPropsSize = stream->total_processed - dataStart;
   stream_seek(stream, headerOffset);
@@ -2180,6 +2368,11 @@ bool load_props_state(StateStream *stream) {
   if (!load_viewer_players_state(stream)) {
     return FALSE;
   }
+
+  // Restore scorch marks and bullet holes now that the prop table is rebuilt, so
+  // prop-attached impacts can resolve their saved prop index.
+  load_decals_state(stream);
+  load_flying_particles_state(stream);
 
   return TRUE;
 }

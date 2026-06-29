@@ -21,7 +21,7 @@
  * - Modifying the size or layout of fields in the middle of the save state
  * (which alters offsets of all subsequent fields).
  */
-#define SAVE_STATE_VERSION 5
+#define SAVE_STATE_VERSION 7
 typedef struct {
   u32 magic;
   u16 version;

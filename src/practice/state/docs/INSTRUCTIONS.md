@@ -40,6 +40,7 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 - Music
 - Audio
 - Lighting that slowly changes regardless of time scale (not sure if part of state or time scale bug?)
+- ~~Scorch marks, bullet holes & flying explosion particles~~ (done; see [DECALS.md](DECALS.md))
 
 ## Key Learnings
 
