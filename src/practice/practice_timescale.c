@@ -18,8 +18,6 @@ void set_final_time_scale(f32 scale) {
   g_IsTimeScaleChanged = scale != 1.0f;
 }
 
-// TODO: Gun fire rate by bond is unaffected by time scale.
-//       Look into gunTickGameplay and chrlvTriggerFireWeapon.
 void set_time_scale(f32 scale) {
   if (scale < 0.0f)
     scale = 0.0f;

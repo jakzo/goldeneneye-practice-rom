@@ -22200,8 +22200,19 @@ void gunTickGameplay(s32 triggerOn)
         g_CurrentPlayer->z_trigger_timer = 0;
     }
 
-    handle_weapon_id_values_possibly_1st_person_animation(0, sp48z.arr[0]);
-    handle_weapon_id_values_possibly_1st_person_animation(1, sp48z.arr[1]);
+#ifdef PRACTICE_ROM
+    // Don't fire weapon when time is paused or between frames when slowed
+    if (g_ClockTimer == 0)
+    {
+        g_CurrentPlayer->hands[0].weapon_firing_status = 0;
+        g_CurrentPlayer->hands[1].weapon_firing_status = 0;
+    }
+    else
+#endif
+    {
+        handle_weapon_id_values_possibly_1st_person_animation(0, sp48z.arr[0]);
+        handle_weapon_id_values_possibly_1st_person_animation(1, sp48z.arr[1]);
+    }
     used_to_load_1st_person_model_on_demand(0);
     used_to_load_1st_person_model_on_demand(1);
     sub_GAME_7F0671A4();

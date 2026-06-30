@@ -2,9 +2,13 @@
 #include "bondview.h"
 #include "emu_log.h"
 #include "joy.h"
+#include "practice_timescale.h"
+#include "player.h"
 #include "state/practice_states.h"
 #include <bondgame.h>
 #include <ultra64.h>
+
+extern s32 g_ClockTimer;
 
 static s32 g_save_test_timer = -1;
 static u32 case_delta = 0;
@@ -142,6 +146,43 @@ void practice_tests_tick(void) {
       load_game_state();
       emu_log("LOAD_DONE");
     } else if (after_frames(2)) {
+      emu_log("TEST_COMPLETE");
+    }
+#elif TEST_CASE == FIRE_SLOWMO
+    // The first-person gun must fire only when simulation time advances. A shot
+    // (ammo decrement) on a frame where no time passed (prev_clock == 0) means
+    // the gun fired while frozen/slowed -- the bug.
+    {
+      static s32 prev_ammo = -1;
+      static s32 prev_clock = 1;
+      s32 ammo = g_CurrentPlayer->hands[GUNRIGHT].weapon_ammo_in_magazine;
+      if (prev_ammo >= 0 && ammo < prev_ammo) {
+        emu_log("SHOT clock=%d ammo=%d->%d", prev_clock, prev_ammo, ammo);
+        if (prev_clock == 0) {
+          emu_log("BUG_FIRE_WHILE_FROZEN");
+        }
+      }
+      prev_ammo = ammo;
+      prev_clock = g_ClockTimer;
+    }
+
+    if (after_frames(60)) {
+      // Hold fire at normal speed first so the gun is raised and shooting.
+      emu_log("PRESS_Z");
+      g_SimulatedButtons |= Z_TRIG;
+    } else if (after_frames(30)) {
+      emu_log("FREEZE");
+      set_time_scale(0.0f);
+    } else if (after_frames(120)) {
+      emu_log("SLOWMO_0.1");
+      set_time_scale(0.1f);
+    } else if (after_frames(240)) {
+      emu_log("UNFREEZE_NORMAL");
+      set_time_scale(1.0f);
+    } else if (after_frames(60)) {
+      emu_log("RELEASE_Z");
+      g_SimulatedButtons &= ~Z_TRIG;
+    } else if (after_frames(20)) {
       emu_log("TEST_COMPLETE");
     }
 #endif

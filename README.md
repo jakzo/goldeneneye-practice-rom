@@ -19,28 +19,38 @@ This ROM provides tools for practicing speedruns of Goldeneye 007 on the Nintend
 
 - **Timer displayed during levels**
 - **End screen timer displays hundredths**
+- **Time scale control**
+    - During gameplay press `L + D-Left` to decrease game speed by 10%
+    - During gameplay press `L + D-Right` to increase game speed by 10%
 - **Skip level intro cutscenes**
     - Starting a level goes straight into it, rather than playing the intro cutscene
 - **Skips legal and logo screens on game startup**
 - **Save automatically fully unlocked**
     - On booting the ROM for the first time the default save will have all levels and cheats unlocked
 
+### Level features
+
+- **Dam**
+    - Indicator for when the gate guard has loaded in
+- **Runway**
+    - Splits
+
 ### ℹ️ Beta features
 
-These features have some minor bugs but should be usable:
+These features have some minor bugs or limitations but should be usable:
 
-- **Time scale control**
-    - During gameplay press `L + D-Left` to decrease game speed by 10%
-    - During gameplay press `L + D-Right` to increase game speed by 10%
+- **Save states**
+    - During gameplay press `L + D-Down` to save current state
+    - During gameplay press `L + D-Up` to load current state
+    - There are several minor visual/audio pieces of state which are not saved or loaded but should not affect gameplay
+        - If there is some state not saved that DOES affect gameplay, let me know (@jakzo on Discord)
+    - Not fully stable, expect occassional crashes
+        - If you can reliably reproduce the crash, let me know so I can fix it (@jakzo on Discord)
 
 ### ⚠️ Alpha features
 
 These features have many significant bugs and are unfinished. You should not expect them to work properly:
 
-- **Save states**
-    - During gameplay press `L + D-Down` to save current state
-    - During gameplay press `L + D-Up` to load current state
-    - Note that many bits of state do not yet get restored, like killed guards and destroyed props
 - **Grenade camera**
     - When throwing grenades, shows a picture-in-picture view that follows the grenade so you can see where it landed
 
