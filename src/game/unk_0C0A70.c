@@ -56,6 +56,8 @@ void updateFrameCounters(s32 deltaFrames)
         deltaFrames = (s32)g_FractionalClockTimerAcc;
         g_FractionalClockTimerAcc -= (f32)deltaFrames;
     }
+    g_TimeScaleDeltaFrames = deltaFrames;
+    restore_rng_if_frame_dropped();
 #endif
 
     lastFrameCounter = currentFrameCounter;
