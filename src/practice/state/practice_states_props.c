@@ -108,6 +108,24 @@ static void clear_plain_prop(PropRecord *prop, bool release_prop) {
   }
 }
 
+static void release_explosion_prop(PropRecord *prop) {
+  if (prop->explosion != NULL) {
+    // Natural expiry leaves every part inactive before releasing the buffer
+    // entry. Save-state loading can remove an explosion early, so explicitly
+    // establish the same invariant before a later explosion reuses the entry.
+    bzero(prop->explosion, sizeof(*prop->explosion));
+  }
+}
+
+static void release_smoke_prop(PropRecord *prop) {
+  if (prop->smoke != NULL) {
+    // explosionCreateSmoke assumes a free entry has no live particles. That is
+    // true after natural expiry, but not when loading forcibly removes smoke.
+    // Without this clear, the next shot can render particles from after save.
+    bzero(prop->smoke, sizeof(*prop->smoke));
+  }
+}
+
 static void destroy_chr_prop(PropRecord *prop, bool release_prop) {
   if (prop == NULL || prop->type != PROP_TYPE_CHR) {
     return;
@@ -152,13 +170,13 @@ static bool clear_prop_for_replacement(PropRecord *prop) {
   }
 
   if (prop->type == PROP_TYPE_EXPLOSION && prop->explosion != NULL) {
-    prop->explosion->prop = NULL;
+    release_explosion_prop(prop);
     clear_plain_prop(prop, FALSE);
     return TRUE;
   }
 
   if (prop->type == PROP_TYPE_SMOKE && prop->smoke != NULL) {
-    prop->smoke->prop = NULL;
+    release_smoke_prop(prop);
     clear_plain_prop(prop, FALSE);
     return TRUE;
   }
@@ -628,14 +646,10 @@ static void removePropAtIndex(s16 index) {
              toClear->type == PROP_TYPE_WEAPON) {
     objFreePermanently(toClear->obj, TRUE);
   } else if (toClear->type == PROP_TYPE_EXPLOSION) {
-    if (toClear->explosion != NULL) {
-      toClear->explosion->prop = NULL;
-    }
+    release_explosion_prop(toClear);
     clear_plain_prop(toClear, TRUE);
   } else if (toClear->type == PROP_TYPE_SMOKE) {
-    if (toClear->smoke != NULL) {
-      toClear->smoke->prop = NULL;
-    }
+    release_smoke_prop(toClear);
     clear_plain_prop(toClear, TRUE);
   } else {
     clear_plain_prop(toClear, TRUE);

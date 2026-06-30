@@ -31,6 +31,7 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining State to Restore
 
+- Alarm state
 - Muzzle flare, mid-air bullets and bullet impact flashes
 - Watch clock hands
 - When watch is open then loading to out of watch nothing is rendered (and opposite maybe?)
