@@ -2,6 +2,7 @@
 #include "bondview.h"
 #include "chr.h"
 #include "chrobjhandler.h"
+#include "objective_status.h"
 #include "player.h"
 #include "player_2.h"
 #include "practice_states_utils.h"
@@ -24,6 +25,151 @@ static s32 saved_world_tank_prop_index;
 static s32 saved_current_player_index;
 static u64 saved_random_seed;
 static u64 saved_chr_obj_random_seed;
+
+static s32 count_room_objective_criteria(void) {
+  struct criteria_roomentered *criteria;
+  s32 count = 0;
+
+  for (criteria = ptr_last_enter_room_subobject_entry_type20; criteria != NULL;
+       criteria = criteria->next) {
+    count++;
+  }
+
+  return count;
+}
+
+static s32 count_deposit_objective_criteria(void) {
+  struct criteria_deposit *criteria;
+  s32 count = 0;
+
+  for (criteria = ptr_last_deposit_in_room_subobject_entry_type21;
+       criteria != NULL; criteria = criteria->next) {
+    count++;
+  }
+
+  return count;
+}
+
+static s32 count_picture_objective_criteria(void) {
+  struct criteria_picture *criteria;
+  s32 count = 0;
+
+  for (criteria = ptr_last_photo_obj_in_room_subobject_entry_type1E;
+       criteria != NULL; criteria = criteria->next) {
+    count++;
+  }
+
+  return count;
+}
+
+static void save_objective_state(StateStream *stream) {
+  struct criteria_roomentered *room_criteria;
+  struct criteria_deposit *deposit_criteria;
+  struct criteria_picture *picture_criteria;
+  s32 i;
+
+  for (i = 0; i < OBJECTIVES_MAX; i++) {
+    write_u32(stream, objectiveStatuses[i]);
+  }
+
+  write_u32(stream, count_room_objective_criteria());
+  for (room_criteria = ptr_last_enter_room_subobject_entry_type20;
+       room_criteria != NULL; room_criteria = room_criteria->next) {
+    write_u32(stream, room_criteria->status);
+  }
+
+  write_u32(stream, count_deposit_objective_criteria());
+  for (deposit_criteria = ptr_last_deposit_in_room_subobject_entry_type21;
+       deposit_criteria != NULL; deposit_criteria = deposit_criteria->next) {
+    write_u32(stream, deposit_criteria->flag);
+  }
+
+  write_u32(stream, count_picture_objective_criteria());
+  for (picture_criteria = ptr_last_photo_obj_in_room_subobject_entry_type1E;
+       picture_criteria != NULL; picture_criteria = picture_criteria->next) {
+    write_u32(stream, picture_criteria->flag);
+  }
+
+  for (i = 0; i < MAX_PLAYER_COUNT; i++) {
+    write_u32(stream, g_playerPlayerData[i].killed_civilians);
+  }
+}
+
+static void load_objective_state(StateStream *stream) {
+  struct criteria_roomentered *room_criteria;
+  struct criteria_deposit *deposit_criteria;
+  struct criteria_picture *picture_criteria;
+  s32 saved_count;
+  s32 current_count;
+  s32 i;
+
+  for (i = 0; i < OBJECTIVES_MAX; i++) {
+    objectiveStatuses[i] = read_u32(stream);
+  }
+
+  saved_count = read_u32(stream);
+  current_count = count_room_objective_criteria();
+  room_criteria = ptr_last_enter_room_subobject_entry_type20;
+  for (i = 0; i < saved_count; i++) {
+    u32 status = read_u32(stream);
+    if (room_criteria != NULL) {
+      room_criteria->status = status;
+      room_criteria = room_criteria->next;
+    }
+  }
+  while (room_criteria != NULL) {
+    room_criteria->status = 0;
+    room_criteria = room_criteria->next;
+  }
+  if (saved_count != current_count) {
+    practiceLogWarn("Room objective criteria count changed (%d saved, %d live)",
+                    saved_count, current_count);
+  }
+
+  saved_count = read_u32(stream);
+  current_count = count_deposit_objective_criteria();
+  deposit_criteria = ptr_last_deposit_in_room_subobject_entry_type21;
+  for (i = 0; i < saved_count; i++) {
+    u32 flag = read_u32(stream);
+    if (deposit_criteria != NULL) {
+      deposit_criteria->flag = flag;
+      deposit_criteria = deposit_criteria->next;
+    }
+  }
+  while (deposit_criteria != NULL) {
+    deposit_criteria->flag = 0;
+    deposit_criteria = deposit_criteria->next;
+  }
+  if (saved_count != current_count) {
+    practiceLogWarn(
+        "Deposit objective criteria count changed (%d saved, %d live)",
+        saved_count, current_count);
+  }
+
+  saved_count = read_u32(stream);
+  current_count = count_picture_objective_criteria();
+  picture_criteria = ptr_last_photo_obj_in_room_subobject_entry_type1E;
+  for (i = 0; i < saved_count; i++) {
+    u32 flag = read_u32(stream);
+    if (picture_criteria != NULL) {
+      picture_criteria->flag = flag;
+      picture_criteria = picture_criteria->next;
+    }
+  }
+  while (picture_criteria != NULL) {
+    picture_criteria->flag = 0;
+    picture_criteria = picture_criteria->next;
+  }
+  if (saved_count != current_count) {
+    practiceLogWarn(
+        "Picture objective criteria count changed (%d saved, %d live)",
+        saved_count, current_count);
+  }
+
+  for (i = 0; i < MAX_PLAYER_COUNT; i++) {
+    g_playerPlayerData[i].killed_civilians = read_u32(stream);
+  }
+}
 
 #if defined(VERSION_JP) || defined(VERSION_EU)
 extern s32 dword_CODE_bss_jp80079CEC[0x05];
@@ -90,6 +236,9 @@ void save_global_state(StateStream *stream) {
   // Alarm
   write_u32(stream, alarm_timer);
   write_u32(stream, objectiveregisters1);
+
+  // Objectives
+  save_objective_state(stream);
 }
 
 void load_global_state_pre_props(StateStream *stream) {
@@ -153,6 +302,9 @@ void load_global_state_pre_props(StateStream *stream) {
   // Sound states are dynamically allocated and all SFX are stopped before
   // loading. Let the alarm update create a fresh handle when it next runs.
   ptr_alarm_sfx = NULL;
+
+  // Objectives
+  load_objective_state(stream);
 
   // TODO: We should save the RNG state needed for restoring each prop
   // individually but for now just use the final RNG state when restoring props
