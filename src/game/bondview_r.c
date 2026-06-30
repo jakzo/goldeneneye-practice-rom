@@ -16,6 +16,7 @@
 #include "game/ramromreplay.h"
 #include "game/stan.h"
 #include "practice/practice_config.h"
+#include "practice/practice_intro.h"
 #include "fog.h"
 
 
@@ -356,6 +357,11 @@ void bondviewLoadSetupIntroSection(void)
 
     if (g_CurrentSetupIntroCamera != NULL)
     {
+#ifdef PRACTICE_ROM
+        ptr_random06cam_entry = practice_choose_intro_camera(
+            g_CurrentSetupIntroCamera, g_SetupIntroCameraCount,
+            bossGetStageNum(), randomGetNext());
+#else
         ptr_random06cam_entry = g_CurrentSetupIntroCamera;
         rand_camera_index = (s32)(randomGetNext() % (u32) g_SetupIntroCameraCount);
         while (rand_camera_index > 0)
@@ -363,6 +369,7 @@ void bondviewLoadSetupIntroSection(void)
             rand_camera_index--;
             ptr_random06cam_entry = ptr_random06cam_entry->prev;
         }
+#endif
     }
 
     bondinvAddInvItem(ITEM_FIST);

@@ -18,6 +18,7 @@ struct PracticeConfig {
   s32 grenade_cam;
   s32 splits_enabled;
   s32 gate_guard_status;
+  s32 dam_gate_intro_enabled;
 };
 
 extern struct PracticeConfig practice;

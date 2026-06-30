@@ -23,6 +23,7 @@ struct PracticeConfig practice = {
     FALSE,         // grenade_cam
     TRUE,          // splits_enabled
     TRUE,          // gate_guard_status
+    FALSE,         // dam_gate_intro_enabled
 };
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
@@ -170,6 +171,8 @@ static const struct PracticeSetting s_level_settings[] = {
     OPTIONS_SETTING("Splits", splits_enabled, s_enabled_disabled, splits_apply),
     OPTIONS_SETTING("Gate guard status", gate_guard_status, s_enabled_disabled,
                     dam_apply),
+    OPTIONS_SETTING("Gate intro cutscene", dam_gate_intro_enabled,
+                    s_disabled_enabled, dam_apply),
     DYNAMIC_OPTIONS_SETTING("Boot into level", boot_level, boot_level_options),
 };
 
@@ -619,16 +622,20 @@ static Gfx *render_setting(Gfx *gdl, const struct PracticeSetting *setting,
   return gdl;
 }
 
-static Gfx *render_settings(Gfx *gdl, const char *heading,
+static Gfx *render_settings(Gfx *gdl, const char *heading, u32 heading_color,
                             const struct PracticeSetting *settings,
                             s32 setting_count, s32 stage_id, s32 *visible_index,
                             s32 *y) {
   s32 i;
+  u32 x = SETTINGS_X;
 
   if (line_is_below_view(*y)) {
     return gdl;
   }
-  gdl = print_text(gdl, SETTINGS_X, *y, heading, TEXT_COLOR);
+  // gdl = print_text(gdl, SETTINGS_X, *y, heading, heading_color);
+  gdl = textRenderGlow(gdl, &x, y, heading, ptrFontZurichBoldChars,
+                       ptrFontZurichBold, heading_color, 0xffffffff, viGetX(),
+                       viGetY(), 0, 0);
   *y += SETTINGS_LINE_HEIGHT;
 
   for (i = 0; i < setting_count; i++) {
@@ -710,13 +717,13 @@ Gfx *practice_config_menu_render(Gfx *gdl, s32 stage_id) {
   gdl = render_scrollbar(gdl, stage_id);
 
   if (level_count > 0) {
-    gdl = render_settings(gdl, "LEVEL SETTINGS:", s_level_settings,
+    gdl = render_settings(gdl, "LEVEL SETTINGS:", 0x003300FF, s_level_settings,
                           ARRAY_COUNT(s_level_settings), stage_id,
                           &visible_index, &y);
     y += SETTINGS_HEADING_GAP;
   }
 
-  return render_settings(gdl, "GLOBAL SETTINGS:", s_global_settings,
+  return render_settings(gdl, "GLOBAL SETTINGS:", 0x330033FF, s_global_settings,
                          ARRAY_COUNT(s_global_settings), stage_id,
                          &visible_index, &y);
 }
