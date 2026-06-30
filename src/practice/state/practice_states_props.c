@@ -672,6 +672,18 @@ static void restore_chr_attachments(PropRecord *chr_prop,
     chr->weapons_held[2] = saved[2];
   }
   chr->handle_positiondata_hat = saved[3];
+
+  // Restore the muzzle flash (GUNFIRE node) visibility last: weapon creation
+  // and (re)attachment reset it to hidden, so the saved firing flash would be
+  // lost otherwise. weaponSetGunfireVisible is a no-op on non-weapon props.
+  if (chr->weapons_held[GUNRIGHT] != NULL) {
+    weaponSetGunfireVisible(chr->weapons_held[GUNRIGHT],
+                            indices->gunfire_visible[GUNRIGHT]);
+  }
+  if (chr->weapons_held[GUNLEFT] != NULL) {
+    weaponSetGunfireVisible(chr->weapons_held[GUNLEFT],
+                            indices->gunfire_visible[GUNLEFT]);
+  }
 }
 
 static void removePropAtIndex(s16 index) {

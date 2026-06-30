@@ -10,6 +10,7 @@ typedef struct ChrAttachmentIndices {
   s16 weapon_model[2];
   s8 weaponnum[2];
   u32 weapon_flags[2];
+  s8 gunfire_visible[2];
   s16 hat_model;
   u32 hat_flags;
 } ChrAttachmentIndices;

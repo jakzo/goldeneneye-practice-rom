@@ -31,7 +31,6 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining State to Restore
 
-- Muzzle flare
 - Watch clock hands
 - When watch is open then loading to out of watch nothing is rendered (and opposite maybe?)
 - Sky
@@ -71,6 +70,20 @@ Add any general advice helpful for future agents working on this feature here. B
   absolute addresses. Player/NPC tracer beams are held in the restored
   hand/CHR records, but their rendered age must not advance while
   `g_ClockTimer == 0`.
+- **Muzzle Flash (GUNFIRE Node)**: A firing weapon's muzzle flash is the
+  GUNFIRE-node `visible` flag (`ModelRwData_GunfireRecord`) on the weapon's
+  `Model`, set/read by `weaponSetGunfireVisible`/`weaponIsGunfireVisible`. It is
+  _latched_, not per-frame: `chrlvFireWeaponRelated` → `chrSetFiring` raises it
+  on a fire trigger and it is only cleared by stop-firing, so it survives across
+  ticks and is **not** re-derived on load. NPC/CHR-held weapons are disabled
+  child props that the prop loop never serializes, so the flag is saved per held
+  weapon inside the CHR record (next to its model/weaponnum/flags) and reapplied
+  in `restore_chr_attachments` _after_ each weapon is reattached — weapon
+  (re)creation resets the node to hidden, so restoring it earlier would be lost.
+  Standalone (enabled) weapon props on the ground never fire, so their flag is
+  always clear and is not serialized. The player's own first-person muzzle flash
+  is a separate view-model effect driven each frame from the saved hand firing
+  state, not this prop flag.
 - **Object Projectile/Embedment Union**: `ObjectRecord::projectile` and `ObjectRecord::embedment` occupy the same union slot. On load, restore only the member selected by `RUNTIMEBITFLAG_DEPOSIT` or `RUNTIMEBITFLAG_EMBEDDED`. Restoring one and then clearing the other overwrites the shared pointer; a deposited object will retain its flag and crash on the next tick when the engine dereferences the null projectile.
 - **Resolve Projectile Prop Indices After Loading All Props**: Do not temporarily store saved prop indices in `Projectile::ownerprop` or `Projectile::obj`. If a referenced prop was collected or otherwise removed after the save, its record is skipped and the integer remains disguised as a pointer; a later tick or second save will dereference it and crash. Keep indices in separate arrays, resolve them after all prop records are processed, and free projectiles whose object prop no longer exists.
 - **Adding/Removing Props on Load**: The loader rebuilds the prop array to match the save exactly. Props are processed in ascending slot order; before each saved record, every enabled prop in the skipped slots is removed (`removePropAtIndex`), and after the last record all trailing enabled slots are removed. Each saved prop is restored into its _exact_ original slot so all index-based references (parent/child/prev/next, `weapons_held`, projectile `obj`) stay valid. When the current world has no compatible prop in a slot, it is recreated there:

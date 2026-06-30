@@ -272,8 +272,10 @@ ChrRecord::handle_positiondata_hat;/* Headwear prop, or NULL. */
 ChrAttachmentIndices::weapon_model[2]; /* Weapon model IDs for recreation. */
 ChrAttachmentIndices::weaponnum[2];    /* ITEM_IDS values for recreation. */
 ChrAttachmentIndices::weapon_flags[2]; /* Object setup flags for recreation. */
+ChrAttachmentIndices::gunfire_visible[2]; /* Per-hand muzzle flash latch. */
 ChrAttachmentIndices::hat_model;       /* Hat model ID for recreation. */
 ChrAttachmentIndices::hat_flags;       /* Hat object setup flags. */
+ModelRwData_GunfireRecord::visible;    /* Held weapon's GUNFIRE node flash. */
 PropRecord::parent;                /* Owning CHR prop for attached equipment. */
 PropRecord::child/prev/next;       /* CHR child/sibling attachment links. */
 ObjectRecord::runtime_bitflags;    /* RUNTIMEBITFLAG_HASOWNER ownership bit. */
@@ -319,6 +321,16 @@ The equipment model's `attachedto` points to the live CHR model.
 `attachedto_objinst` selects model switch `3` for the right hand, `5` for the
 left hand, and `6` for the head/hat. Attached objects also receive
 `RUNTIMEBITFLAG_HASOWNER` (`0x00080000`) and are disabled while parented.
+
+Each hand also serializes its weapon's muzzle flash visibility
+(`gunfire_visible[hand]`), read via `weaponIsGunfireVisible`. This is the
+GUNFIRE-node `visible` flag in the weapon model's RwData — a latched effect set
+when the CHR fires (`chrSetFiring`) and only cleared on stop-firing, so it does
+not reconstruct itself on load. It is reapplied with `weaponSetGunfireVisible`
+as the final step of `restore_chr_attachments`, after each weapon is reattached,
+because weapon creation/attachment resets the node to hidden. The call is a
+no-op on non-weapon-skeleton props. See the "Muzzle Flash" learning in
+`INSTRUCTIONS.md`.
 Reattaching a weapon dropped after the save clears stale
 `RUNTIMEBITFLAG_DEPOSIT`/`RUNTIMEBITFLAG_EMBEDDED` state because the associated
 projectile and embedment pools have already been restored independently.

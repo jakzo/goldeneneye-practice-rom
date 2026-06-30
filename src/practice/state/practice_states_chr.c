@@ -1,6 +1,7 @@
 #include "practice_states_chr.h"
 #include "chr.h"
 #include "chrai.h"
+#include "chrobjhandler.h"
 #include "initanitable.h"
 #include "objecthandler.h"
 #include "practice_states_utils.h"
@@ -1275,6 +1276,10 @@ void save_chr_record(StateStream *stream, const ChrRecord *chr) {
       write_u16(stream, weapon != NULL ? (u16)weapon->obj : (u16)-1);
       write_u8(stream, weapon != NULL ? (u8)weapon->weaponnum : 0);
       write_u32(stream, weapon != NULL ? weapon->flags : 0);
+      // Muzzle flash (GUNFIRE node) visibility is latched in the weapon model's
+      // RwData when the CHR fires and only cleared on stop-firing, so it must be
+      // saved alongside the held weapon rather than re-derived on load.
+      write_u8(stream, (u8)(prop != NULL ? weaponIsGunfireVisible(prop) : 0));
     }
   }
 
@@ -1432,11 +1437,13 @@ void load_chr_record(StateStream *stream, ChrRecord *chr,
     s16 model = (s16)read_u16(stream);
     s8 weaponnum = (s8)read_u8(stream);
     u32 flags = read_u32(stream);
+    s8 gunfire_visible = (s8)read_u8(stream);
 
     if (attachments != NULL) {
       attachments->weapon_model[hand] = model;
       attachments->weaponnum[hand] = weaponnum;
       attachments->weapon_flags[hand] = flags;
+      attachments->gunfire_visible[hand] = gunfire_visible;
     }
   }
 
