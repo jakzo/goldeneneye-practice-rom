@@ -179,6 +179,8 @@ static const struct PracticeSetting s_level_settings[] = {
 static const struct PracticeSetting s_global_settings[] = {
     SLIDER_SETTING("Log message duration", log_message_duration, 0.1f, 20.0f,
                    0.1f),
+    OPTIONS_SETTING("Skip intro cutscenes", disable_intro_cutscenes,
+                    s_disabled_enabled, NULL),
     OPTIONS_SETTING("Skip logos on startup", skip_logos_on_startup,
                     s_enabled_disabled, NULL),
     OPTIONS_SETTING("Hotkey trigger", left_trigger_hotkeys, s_left_right, NULL),
