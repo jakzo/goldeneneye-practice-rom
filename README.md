@@ -4,7 +4,7 @@ This ROM provides tools for practicing speedruns of Goldeneye 007 on the Nintend
 
 ## How to install
 
-- Download the latest `.bps` patch from [the releases page](https://github.com/jakzo/goldeneneye-practice-rom/releases)
+- Download the latest `.xdelta` patch from [the releases page](https://github.com/jakzo/goldeneneye-practice-rom/releases)
 - Acquire an unmodified base ROM of the US NTSC version of Goldeneye
 - Use a ROM patcher tool such as [this one](https://www.marcrobledo.com/RomPatcher.js/) and apply the patch to the base ROM
 - Run your modified ROM on:
