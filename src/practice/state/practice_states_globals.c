@@ -1,5 +1,7 @@
 #include "practice_states_globals.h"
 #include "bondview.h"
+#include "chr.h"
+#include "chrobjhandler.h"
 #include "player.h"
 #include "player_2.h"
 #include "practice_states_utils.h"
@@ -84,6 +86,10 @@ void save_global_state(StateStream *stream) {
   write_bytes(stream, &g_randomSeed, sizeof(g_randomSeed));
   write_bytes(stream, &g_chrObjRandomSeed, sizeof(g_chrObjRandomSeed));
   write_u32(stream, get_cur_playernum());
+
+  // Alarm
+  write_u32(stream, alarm_timer);
+  write_u32(stream, objectiveregisters1);
 }
 
 void load_global_state_pre_props(StateStream *stream) {
@@ -140,6 +146,13 @@ void load_global_state_pre_props(StateStream *stream) {
   read_bytes(stream, &saved_chr_obj_random_seed,
              sizeof(saved_chr_obj_random_seed));
   saved_current_player_index = read_u32(stream);
+
+  // Alarm
+  alarm_timer = read_u32(stream);
+  objectiveregisters1 = read_u32(stream);
+  // Sound states are dynamically allocated and all SFX are stopped before
+  // loading. Let the alarm update create a fresh handle when it next runs.
+  ptr_alarm_sfx = NULL;
 
   // TODO: We should save the RNG state needed for restoring each prop
   // individually but for now just use the final RNG state when restoring props
