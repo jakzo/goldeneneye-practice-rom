@@ -14,6 +14,7 @@
 #include <ultra64.h>
 
 extern s32 g_CurrentStageToLoad;
+extern s32 g_BgCurrentRoom; // player's current room (defined in bg.c)
 
 extern int sprintf(char *dst, const char *fmt, ...);
 
@@ -72,6 +73,12 @@ bool practice_check_hotkeys(void) {
   // TODO: Display memory usage while paused?
   if (jgbptf & R_CBUTTONS) {
     practice_log_memory_usage();
+    return TRUE;
+  }
+
+  // Log the room the player is currently in (useful for finding room IDs).
+  if (jgbptf & U_CBUTTONS) {
+    practiceLogInfo("Room: %d", g_BgCurrentRoom);
     return TRUE;
   }
 #endif

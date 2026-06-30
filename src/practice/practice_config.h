@@ -17,6 +17,7 @@ struct PracticeConfig {
   s32 show_mission_timer;
   s32 grenade_cam;
   s32 splits_enabled;
+  s32 gate_guard_status;
 };
 
 extern struct PracticeConfig practice;

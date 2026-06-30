@@ -1,5 +1,7 @@
 #include "practice_ui.h"
+#include "boss.h"
 #include "emu_log.h"
+#include "game/bg.h"
 #include "game/bondview.h"
 #include "game/textrelated.h"
 #include "player.h"
@@ -246,6 +248,17 @@ void practiceLogError(const char *fmt, ...) {
   va_end(args);
 }
 
+#define PILL_TEXT_MAX_LEN 32
+#define PILL_PAD_X 5
+#define PILL_PAD_Y 1
+#define PILL_MARGIN_TOP 12
+#define PILL_MARGIN_RIGHT 5
+#define PILL_SPACING 2
+
+// Y coordinate of the top of the next pill. Reset each frame by
+// practice_ui_render so pills stack from the top down.
+static s32 g_PillStackY;
+
 // Note that rendering text with outline causes the text to be rendered 9x
 #define RENDER_TEXT_WITH_OUTLINE TRUE
 
@@ -258,6 +271,84 @@ Gfx *renderText(Gfx *gdl, s32 *x, s32 *y, char *text, s32 fontChars, s32 font,
   return textRender(gdl, x, y, text, fontChars, font, (s32)color, viewX, viewY,
                     0, 0);
 #endif
+}
+
+Gfx *practice_ui_render_pill(Gfx *gdl, const char *text, u32 text_color,
+                             u32 pill_color) {
+  char buf[PILL_TEXT_MAX_LEN];
+  s32 len;
+  s32 text_w;
+  s32 text_h;
+  s32 right_edge;
+  s32 box_left;
+  s32 box_top;
+  s32 box_right;
+  s32 box_bottom;
+  s32 text_x;
+  s32 text_y;
+
+  // Copy the text into a local buffer with a trailing newline so textMeasure
+  // computes the height correctly, then render from that same buffer.
+  for (len = 0; len < PILL_TEXT_MAX_LEN - 2 && text[len] != '\0'; len++) {
+    buf[len] = text[len];
+  }
+  buf[len] = '\n';
+  buf[len + 1] = '\0';
+
+  textMeasure(&text_h, &text_w, buf, (struct fontchar *)LOGGER_FONT_CHARS,
+              (struct font *)LOGGER_FONT_TABLE, 0);
+
+  right_edge = viGetX() - PILL_MARGIN_RIGHT;
+  box_right = right_edge;
+  box_left = right_edge - text_w - 2 * PILL_PAD_X;
+  box_top = g_PillStackY;
+  box_bottom = box_top + text_h + 2 * PILL_PAD_Y;
+
+  // Filled background box (alpha byte of pill_color gives the opacity).
+  gdl = microcode_constructor_related_to_menus(
+      gdl, box_left, box_top, box_right, box_bottom, (s32)pill_color);
+
+  text_x = box_left + PILL_PAD_X;
+  text_y = box_top + PILL_PAD_Y;
+  gdl = textRender(gdl, &text_x, &text_y, buf, LOGGER_FONT_CHARS,
+                   LOGGER_FONT_TABLE, text_color, viGetX(), viGetY(), 0, 0);
+
+  // Advance the stack so the next pill renders below this one.
+  g_PillStackY = box_bottom + PILL_SPACING;
+  return gdl;
+}
+
+// --- DAM gate guard room tracker ------------------------------------------
+
+extern s32 g_BgCurrentRoom;
+
+#define GATE_GUARD_ROOM 113
+
+#define PILL_COLOR_GREEN 0x00B00066
+#define PILL_COLOR_RED 0xC0000066
+#define PILL_TEXT_BLACK 0x000000FF
+
+static Gfx *render_gate_guard_pill(Gfx *gdl) {
+
+  if (!practice.gate_guard_status || bossGetStageNum() != LEVELID_DAM) {
+    return gdl;
+  }
+
+  {
+    bool is_near_gate_guard =
+        g_BgCurrentRoom >= 110 && g_BgCurrentRoom <= 111 ||
+        g_BgCurrentRoom >= 124 && g_BgCurrentRoom <= 131;
+    if (!is_near_gate_guard) {
+      return gdl;
+    }
+  }
+
+  {
+    s32 loaded = g_BgRoomInfo[GATE_GUARD_ROOM].model_bin_loaded != FALSE;
+    const char *text = loaded ? "Gate guard loaded" : "Gate guard NOT loaded";
+    u32 pill_color = loaded ? PILL_COLOR_GREEN : PILL_COLOR_RED;
+    return practice_ui_render_pill(gdl, text, PILL_TEXT_BLACK, pill_color);
+  }
 }
 
 Gfx *practice_ui_render(Gfx *gdl) {
@@ -302,6 +393,11 @@ Gfx *practice_ui_render(Gfx *gdl) {
                      ptrFontBankGothic, color, viGetX(), viGetY());
     }
   }
+
+  // Reset the pill stack so this frame's pills start from the top-right.
+  g_PillStackY = PILL_MARGIN_TOP;
+
+  gdl = render_gate_guard_pill(gdl);
 
   if (g_LogQueueCount > 0) {
     ensure_timing_initialized();

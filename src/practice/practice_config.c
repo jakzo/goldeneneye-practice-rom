@@ -22,6 +22,7 @@ struct PracticeConfig practice = {
     TRUE,          // show_mission_timer
     FALSE,         // grenade_cam
     TRUE,          // splits_enabled
+    TRUE,          // gate_guard_status
 };
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
@@ -114,10 +115,6 @@ struct PracticeSetting {
 typedef char StoredPracticeConfigMustFitReservedSpace
     [sizeof(struct StoredPracticeConfig) <= CONFIG_SRAM_SIZE ? 1 : -1];
 
-static const struct PracticeOption s_yes_no[] = {
-    {"Yes", TRUE},
-    {"No", FALSE},
-};
 static const struct PracticeOption s_left_right[] = {
     {"Left", TRUE},
     {"Right", FALSE},
@@ -126,8 +123,14 @@ static const struct PracticeOption s_disabled_enabled[] = {
     {"Disabled", FALSE},
     {"Enabled", TRUE},
 };
+static const struct PracticeOption s_enabled_disabled[] = {
+    {"Enabled", TRUE},
+    {"Disabled", FALSE},
+};
 
 static s32 splits_apply(s32 stage_id) { return stage_id == LEVELID_RUNWAY; }
+
+static s32 dam_apply(s32 stage_id) { return stage_id == LEVELID_DAM; }
 
 static const char *level_name(s32 stage_id) {
   s32 i;
@@ -164,17 +167,19 @@ static s32 boot_level_options(s32 stage_id, s32 option_index,
 }
 
 static const struct PracticeSetting s_level_settings[] = {
-    OPTIONS_SETTING("Splits", splits_enabled, s_yes_no, splits_apply),
+    OPTIONS_SETTING("Splits", splits_enabled, s_enabled_disabled, splits_apply),
+    OPTIONS_SETTING("Gate guard status", gate_guard_status, s_enabled_disabled,
+                    dam_apply),
     DYNAMIC_OPTIONS_SETTING("Boot into level", boot_level, boot_level_options),
 };
 
 static const struct PracticeSetting s_global_settings[] = {
-    OPTIONS_SETTING("Grenade cam", grenade_cam, s_disabled_enabled, NULL),
     SLIDER_SETTING("Log message duration", log_message_duration, 0.1f, 20.0f,
                    0.1f),
-    OPTIONS_SETTING("Skip logos on startup", skip_logos_on_startup, s_yes_no,
-                    NULL),
+    OPTIONS_SETTING("Skip logos on startup", skip_logos_on_startup,
+                    s_enabled_disabled, NULL),
     OPTIONS_SETTING("Hotkey trigger", left_trigger_hotkeys, s_left_right, NULL),
+    OPTIONS_SETTING("Grenade cam", grenade_cam, s_disabled_enabled, NULL),
 };
 
 #undef OPTIONS_SETTING
