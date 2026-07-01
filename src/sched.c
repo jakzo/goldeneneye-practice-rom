@@ -9,7 +9,7 @@
 #include "fr.h"
 #include "joy.h"
 #include "music.h"
-#include "practice_music.h"
+#include "practice_timescale.h"
 #include "speed_graph.h"
 #include "thread_config.h"
 
@@ -323,7 +323,9 @@ void __scHandleRetrace(OSSched *sc) {
     viVsyncRelated();
     joyPoll();
 #ifdef PRACTICE_ROM
-    practice_music_fade_tick();
+    if (!g_IsTimePaused) {
+        musicFadeTick();
+    }
 #else
     musicFadeTick();
 #endif

@@ -5,7 +5,6 @@
 
 void practice_music_pause(void);
 void practice_music_resume(void);
-void practice_music_fade_tick(void);
 s32 practice_music_track_was_playing(s32 track_index);
 void practice_music_set_paused_track_state(s32 track_index, s32 was_playing);
 

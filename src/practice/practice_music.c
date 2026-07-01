@@ -45,12 +45,6 @@ void practice_music_resume(void) {
   }
 }
 
-void practice_music_fade_tick(void) {
-  if (!g_IsTimePaused) {
-    musicFadeTick();
-  }
-}
-
 s32 practice_music_track_was_playing(s32 track_index) {
   ALCSPlayer *player = get_music_player(track_index);
 
