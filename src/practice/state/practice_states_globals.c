@@ -229,6 +229,11 @@ void save_global_state(StateStream *stream) {
   // Values
   write_u32(stream, g_GlobalTimer);
   write_u32(stream, mission_timer);
+#if defined(VERSION_JP) || defined(VERSION_EU)
+  write_f32(stream, watch_time_0);
+#else
+  write_u32(stream, watch_time_0);
+#endif
   write_bytes(stream, &g_randomSeed, sizeof(g_randomSeed));
   write_bytes(stream, &g_chrObjRandomSeed, sizeof(g_chrObjRandomSeed));
   write_u32(stream, get_cur_playernum());
@@ -291,6 +296,11 @@ void load_global_state_pre_props(StateStream *stream) {
   // Values
   g_GlobalTimer = read_u32(stream);
   mission_timer = read_u32(stream);
+#if defined(VERSION_JP) || defined(VERSION_EU)
+  watch_time_0 = read_f32(stream);
+#else
+  watch_time_0 = read_u32(stream);
+#endif
   read_bytes(stream, &saved_random_seed, sizeof(saved_random_seed));
   read_bytes(stream, &saved_chr_obj_random_seed,
              sizeof(saved_chr_obj_random_seed));

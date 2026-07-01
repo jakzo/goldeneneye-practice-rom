@@ -31,7 +31,6 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining State to Restore
 
-- Watch clock hands
 - When watch is open then loading to out of watch nothing is rendered (and opposite maybe?)
 - Sky
 - Music
@@ -62,6 +61,11 @@ Add any general advice helpful for future agents working on this feature here. B
   status and must agree with restored progress to avoid false HUD transition
   messages. Civilian casualties live in `g_playerPlayerData`, outside the main
   player struct, and can drive mission-failure AI.
+- **Watch Clock Hands**: The analog watch hands are derived from the global
+  `watch_time_0`, which advances every gameplay tick and is initialized from an
+  optional stage `INTROTYPE_WATCH` record. Its representation is version
+  dependent: `s32` in US and `f32` in JP/EU, so serialize it with matching
+  integer/float stream operations.
 - **Transient Gun Effects**: The global impact-flare/spark/dust pools
   (`dword_CODE_bss_8007A170`, plus
   `dword_CODE_bss_8007A4E0` outside EU) are independent of props. Serialize
