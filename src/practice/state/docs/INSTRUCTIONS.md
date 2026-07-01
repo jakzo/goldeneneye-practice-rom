@@ -33,9 +33,8 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining State to Restore
 
-- Sky
-- Music
-- Audio
+- Music (pause music when timescale is paused, resume when unpaused, save/load music track and position)
+- Audio (prop sound effects and currently playing audio cues)
 - Lighting that slowly changes regardless of time scale (not sure if part of state or time scale bug?)
 
 ## Key Learnings
@@ -74,6 +73,12 @@ Add any general advice helpful for future agents working on this feature here. B
   gameplay state while the watch is open immediately resumes rendering,
   controls, and timers. `g_ClockTimer` itself is derived each frame and does not
   need serialization.
+- **Sky State**: Cloud and water geometry is rebuilt every frame from the
+  player camera and `CurrentEnvironmentRecord`; there are no persistent vertex
+  or shape buffers to restore. `g_SkyCloudOffset` is the independently advancing
+  cloud/water texture phase. Restore it together with the complete pointer-free
+  current environment (including any interpolated alternative sky) and
+  `g_FogSkyIsEnabled`.
 - **Transient Gun Effects**: The global impact-flare/spark/dust pools
   (`dword_CODE_bss_8007A170`, plus
   `dword_CODE_bss_8007A4E0` outside EU) are independent of props. Serialize

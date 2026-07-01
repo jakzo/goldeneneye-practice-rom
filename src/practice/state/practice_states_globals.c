@@ -2,12 +2,14 @@
 #include "bondview.h"
 #include "chr.h"
 #include "chrobjhandler.h"
+#include "fog.h"
 #include "lvl.h"
 #include "objective_status.h"
 #include "player.h"
 #include "player_2.h"
 #include "practice_states_utils.h"
 #include "practice_ui.h"
+#include "unk_092E50.h"
 #include <ultra64.h>
 
 #define BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH 0x65
@@ -27,6 +29,20 @@ static s32 saved_world_tank_prop_index;
 static s32 saved_current_player_index;
 static u64 saved_random_seed;
 static u64 saved_chr_obj_random_seed;
+
+static void save_sky_state(StateStream *stream) {
+  write_f32(stream, g_SkyCloudOffset);
+  write_u32(stream, g_FogSkyIsEnabled);
+  write_bytes(stream, fogGetCurrentEnvironmentp(),
+              sizeof(CurrentEnvironmentRecord));
+}
+
+static void load_sky_state(StateStream *stream) {
+  g_SkyCloudOffset = read_f32(stream);
+  g_FogSkyIsEnabled = read_u32(stream);
+  read_bytes(stream, fogGetCurrentEnvironmentp(),
+             sizeof(CurrentEnvironmentRecord));
+}
 
 static s32 count_room_objective_criteria(void) {
   struct criteria_roomentered *criteria;
@@ -248,6 +264,9 @@ void save_global_state(StateStream *stream) {
   write_u32(stream, alarm_timer);
   write_u32(stream, objectiveregisters1);
 
+  // Sky
+  save_sky_state(stream);
+
   // Objectives
   save_objective_state(stream);
 }
@@ -322,6 +341,9 @@ void load_global_state_pre_props(StateStream *stream) {
   // Sound states are dynamically allocated and all SFX are stopped before
   // loading. Let the alarm update create a fresh handle when it next runs.
   ptr_alarm_sfx = NULL;
+
+  // Sky
+  load_sky_state(stream);
 
   // Objectives
   load_objective_state(stream);
