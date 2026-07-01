@@ -2,6 +2,7 @@
 #include "bondview.h"
 #include "chr.h"
 #include "chrobjhandler.h"
+#include "lvl.h"
 #include "objective_status.h"
 #include "player.h"
 #include "player_2.h"
@@ -19,6 +20,7 @@ extern s32 g_GlobalTimer;
 extern s32 mission_timer;
 extern u64 g_randomSeed;
 extern u64 g_chrObjRandomSeed;
+extern void sub_GAME_7F0BD8FC(s32 arg0);
 
 static s32 saved_player_tank_prop_index;
 static s32 saved_world_tank_prop_index;
@@ -226,6 +228,10 @@ void save_global_state(StateStream *stream) {
   write_u32(stream, is_timer_active);
   write_u32(stream, g_PlayerInvincible);
 
+  // Level activity
+  write_u32(stream, sub_GAME_7F0BD8F0());
+  write_u32(stream, lvlGetControlsLockedFlag());
+
   // Values
   write_u32(stream, g_GlobalTimer);
   write_u32(stream, mission_timer);
@@ -292,6 +298,10 @@ void load_global_state_pre_props(StateStream *stream) {
   intro_camera_index = read_u32(stream);
   is_timer_active = read_u32(stream);
   g_PlayerInvincible = read_u32(stream);
+
+  // Level activity
+  sub_GAME_7F0BD8FC(read_u32(stream));
+  lvlSetControlsLockedFlag(read_u32(stream));
 
   // Values
   g_GlobalTimer = read_u32(stream);

@@ -14,6 +14,8 @@ Props are fully implemented for save and restore, including adding props that
 the save contains but the current world does not, and removing props that exist
 but are absent from the save. The next goal is global state.
 
+When implementing support for some state, if you notice some other global state that is not supported, implement it immediately if simple, otherwise add it to the list of remaining state to restore to do it later.
+
 ### Next Goals
 
 - [done] Bond
@@ -31,7 +33,6 @@ Read through [INSTRUCTIONS.md](src/practice/state/docs/INSTRUCTIONS.md) and impl
 
 ## Remaining State to Restore
 
-- When watch is open then loading to out of watch nothing is rendered (and opposite maybe?)
 - Sky
 - Music
 - Audio
@@ -66,6 +67,13 @@ Add any general advice helpful for future agents working on this feature here. B
   optional stage `INTROTYPE_WATCH` record. Its representation is version
   dependent: `s32` in US and `f32` in JP/EU, so serialize it with matching
   integer/float stream operations.
+- **Watch Level Activity**: The watch menu changes two globals outside the
+  player struct. `D_800483C0` gates world rendering through
+  `sub_GAME_7F0BD8F0`, while `g_ControlsLockedFlag` makes `lvlManageMpGame` set
+  `g_ClockTimer` to zero. Restore both through their accessors so loading a
+  gameplay state while the watch is open immediately resumes rendering,
+  controls, and timers. `g_ClockTimer` itself is derived each frame and does not
+  need serialization.
 - **Transient Gun Effects**: The global impact-flare/spark/dust pools
   (`dword_CODE_bss_8007A170`, plus
   `dword_CODE_bss_8007A4E0` outside EU) are independent of props. Serialize
