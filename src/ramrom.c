@@ -11,6 +11,10 @@
 OSIoMesg memoryMesgMB;
 OSMesg memoryMesg;
 OSMesgQueue memoryMesgQueue;
+#ifdef PRACTICE_ROM
+OSMesg romDmaLockMesg;
+OSMesgQueue romDmaLockQueue;
+#endif
 
 /**
  * 6760	70005B60
@@ -21,6 +25,10 @@ OSMesgQueue memoryMesgQueue;
 void romCreateMesgQueue(void)
 {
     osCreateMesgQueue(&memoryMesgQueue, &memoryMesg, 1);
+#ifdef PRACTICE_ROM
+    osCreateMesgQueue(&romDmaLockQueue, &romDmaLockMesg, 1);
+    osSendMesg(&romDmaLockQueue, NULL, OS_MESG_NOBLOCK);
+#endif
 }
 
 /**
@@ -52,8 +60,15 @@ void romReceiveMesg(void)
  */
 void romCopy(void *target, void *source, u32 size)
 {
+#ifdef PRACTICE_ROM
+    osRecvMesg(&romDmaLockQueue, NULL, OS_MESG_BLOCK);
     doRomCopy(target, source, size);
     romReceiveMesg();
+    osSendMesg(&romDmaLockQueue, NULL, OS_MESG_NOBLOCK);
+#else
+    doRomCopy(target, source, size);
+    romReceiveMesg();
+#endif
 }
 
 /**
@@ -96,6 +111,13 @@ void doRomWrite(void *source, void *target, u32 size)
  */
 void romWrite(void *source, void *target, u32 size)
 {
+#ifdef PRACTICE_ROM
+    osRecvMesg(&romDmaLockQueue, NULL, OS_MESG_BLOCK);
     doRomWrite(source, target, size);
     romReceiveMesg();
+    osSendMesg(&romDmaLockQueue, NULL, OS_MESG_NOBLOCK);
+#else
+    doRomWrite(source, target, size);
+    romReceiveMesg();
+#endif
 }

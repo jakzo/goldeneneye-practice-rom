@@ -1,5 +1,8 @@
 #include "practice_tests.h"
 #include "bondview.h"
+#include "chr.h"
+#include "chrai.h"
+#include "chrobjhandler.h"
 #include "emu_log.h"
 #include "joy.h"
 #include "practice_timescale.h"
@@ -9,6 +12,7 @@
 #include <ultra64.h>
 
 extern s32 g_ClockTimer;
+extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
 
 static s32 g_save_test_timer = -1;
 static u32 case_delta = 0;
@@ -111,29 +115,70 @@ void practice_tests_tick(void) {
       emu_log("TEST_COMPLETE");
     }
 #elif TEST_CASE == STATE_BUNKER
+    {
+      static s32 previous_chr_count = -1;
+      s32 i;
+      s32 chr_count = 0;
+      ChrRecord *controller = NULL;
+
+      for (i = 0; i < g_NumChrSlots; i++) {
+        if (g_ChrSlots[i].model != NULL) {
+          chr_count++;
+          if (g_ChrSlots[i].chrnum == 25) {
+            controller = &g_ChrSlots[i];
+          }
+        }
+      }
+
+      if (g_save_test_timer % 300 == 0) {
+        emu_log("BUNKER frame=%d alarm=%d flags=%08x chrs=%d ctrl=%p "
+                "timer=%d hidden=%04x aioffset=%d action=%d",
+                g_save_test_timer, alarm_timer, objectiveregisters1, chr_count,
+                controller, controller != NULL ? controller->timer60 : -1,
+                controller != NULL ? controller->hidden : 0,
+                controller != NULL ? controller->aioffset : -1,
+                controller != NULL ? controller->actiontype : -1);
+      }
+
+      if (chr_count != previous_chr_count) {
+        emu_log("CHR_COUNT_CHANGED frame=%d old=%d new=%d", g_save_test_timer,
+                previous_chr_count, chr_count);
+        for (i = 0; i < g_NumChrSlots; i++) {
+          ChrRecord *chr = &g_ChrSlots[i];
+          if (chr->model != NULL) {
+            bool is_global = FALSE;
+            s32 ailist_id =
+                chr->ailist != NULL
+                    ? chraiGetAIListID(chr->ailist, &is_global)
+                    : -1;
+            emu_log("CHR slot=%d num=%d body=%d ai=%04x off=%d flags=%08x "
+                    "hidden=%04x hear=%d action=%d",
+                    i, chr->chrnum, chr->bodynum, ailist_id, chr->aioffset,
+                    chr->chrflags, chr->hidden, chr->lastheartarget60,
+                    chr->actiontype);
+          }
+        }
+        previous_chr_count = chr_count;
+      }
+    }
+
     if (after_frames(30)) {
       emu_log("TRIGGER_SAVE");
       save_game_state();
       emu_log("SAVE_DONE");
     } else if (after_frames(30)) {
+      emu_log("TRIGGER_ALARM");
+      alarmActivate();
+      objectiveregisters1 |= 0x100;
+    } else if (after_frames(600)) {
+      emu_log("PRE_LOAD alarm=%d flags=%08x", alarm_timer,
+              objectiveregisters1);
       emu_log("TRIGGER_LOAD");
       load_game_state();
       emu_log("LOAD_DONE");
-    } else if (after_frames(30)) {
-      emu_log("MOVE_FORWARD");
-      g_SimulatedButtons |= U_CBUTTONS;
-    } else if (after_frames(10)) {
-      g_SimulatedButtons &= ~U_CBUTTONS;
-    } else if (after_frames(20)) {
-      emu_log("OPEN_DOOR");
-      g_SimulatedButtons |= B_BUTTON;
-    } else if (after_frames(2)) {
-      g_SimulatedButtons &= ~B_BUTTON;
-    } else if (after_frames(30)) {
-      emu_log("TRIGGER_SAVE");
-      save_game_state();
-      emu_log("SAVE_DONE");
-    } else if (after_frames(2)) {
+      emu_log("POST_LOAD alarm=%d flags=%08x", alarm_timer,
+              objectiveregisters1);
+    } else if (after_frames(1200)) {
       emu_log("TEST_COMPLETE");
     }
 #elif TEST_CASE == STATE_DAM
