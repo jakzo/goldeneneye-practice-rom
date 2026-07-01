@@ -1,14 +1,15 @@
 #include "practice_states_globals.h"
 #include "bondview.h"
 #include "chr.h"
+#include "chrai.h"
 #include "chrobjhandler.h"
 #include "fog.h"
 #include "lvl.h"
 #include "objective_status.h"
 #include "player.h"
 #include "player_2.h"
-#include "practice_states_utils.h"
 #include "practice_states_music.h"
+#include "practice_states_utils.h"
 #include "practice_ui.h"
 #include "unk_092E50.h"
 #include <ultra64.h>
@@ -23,6 +24,7 @@ extern s32 g_GlobalTimer;
 extern s32 mission_timer;
 extern u64 g_randomSeed;
 extern u64 g_chrObjRandomSeed;
+extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
 extern void sub_GAME_7F0BD8FC(s32 arg0);
 
 static s32 saved_player_tank_prop_index;
@@ -30,6 +32,93 @@ static s32 saved_world_tank_prop_index;
 static s32 saved_current_player_index;
 static u64 saved_random_seed;
 static u64 saved_chr_obj_random_seed;
+
+static void save_background_ai_state(StateStream *stream) {
+  s32 i;
+
+  write_u32(stream, g_ActiveChrsCount);
+
+  for (i = 0; i < g_ActiveChrsCount; i++) {
+    ChrRecord *chr = &g_ActiveChrs[i];
+    s32 ailist_id = -1;
+
+    if (chr->ailist != NULL) {
+      bool is_global;
+      ailist_id = chraiGetAIListID(chr->ailist, &is_global);
+    }
+
+    write_u16(stream, (u16)chr->chrnum);
+    write_u8(stream, (u8)chr->actiontype);
+    write_u8(stream, (u8)chr->sleep);
+    write_u16(stream, chr->hidden);
+    write_u32(stream, chr->chrflags);
+    write_u8(stream, chr->morale);
+    write_u8(stream, chr->alertness);
+    write_u8(stream, chr->flags2);
+    write_u8(stream, chr->random);
+    write_u32(stream, chr->timer60);
+    write_u16(stream, (u16)chr->padpreset1);
+    write_u16(stream, (u16)chr->chrpreset1);
+    write_u16(stream, (u16)chr->chrseeshot);
+    write_u16(stream, (u16)chr->chrseedie);
+    write_u32(stream, ailist_id);
+    write_u16(stream, chr->aioffset);
+    write_u16(stream, (u16)chr->aireturnlist);
+  }
+}
+
+static void load_background_ai_state(StateStream *stream) {
+  s32 saved_count = read_u32(stream);
+  s32 i;
+
+  for (i = 0; i < saved_count; i++) {
+    s16 chrnum = (s16)read_u16(stream);
+    u8 actiontype = read_u8(stream);
+    s8 sleep = (s8)read_u8(stream);
+    u16 hidden = read_u16(stream);
+    u32 chrflags = read_u32(stream);
+    u8 morale = read_u8(stream);
+    u8 alertness = read_u8(stream);
+    u8 flags2 = read_u8(stream);
+    u8 random = read_u8(stream);
+    s32 timer60 = read_u32(stream);
+    s16 padpreset1 = (s16)read_u16(stream);
+    s16 chrpreset1 = (s16)read_u16(stream);
+    s16 chrseeshot = (s16)read_u16(stream);
+    s16 chrseedie = (s16)read_u16(stream);
+    s32 ailist_id = read_u32(stream);
+    u16 aioffset = read_u16(stream);
+    s16 aireturnlist = (s16)read_u16(stream);
+
+    if (i < g_ActiveChrsCount) {
+      ChrRecord *chr = &g_ActiveChrs[i];
+      AIRecord *ailist = ailist_id != -1 ? ailistFindById(ailist_id) : NULL;
+
+      chr->chrnum = chrnum;
+      chr->actiontype = actiontype;
+      chr->sleep = sleep;
+      chr->hidden = hidden;
+      chr->chrflags = chrflags;
+      chr->morale = morale;
+      chr->alertness = alertness;
+      chr->flags2 = flags2;
+      chr->random = random;
+      chr->timer60 = timer60;
+      chr->padpreset1 = padpreset1;
+      chr->chrpreset1 = chrpreset1;
+      chr->chrseeshot = chrseeshot;
+      chr->chrseedie = chrseedie;
+      chr->ailist = ailist;
+      chr->aioffset = ailist != NULL ? aioffset : 0;
+      chr->aireturnlist = ailist != NULL ? aireturnlist : -1;
+    }
+  }
+
+  if (saved_count != g_ActiveChrsCount) {
+    practiceLogWarn("Background AI count changed (%d saved, %d live)",
+                    saved_count, g_ActiveChrsCount);
+  }
+}
 
 static void save_sky_state(StateStream *stream) {
   write_f32(stream, g_SkyCloudOffset);
@@ -265,6 +354,9 @@ void save_global_state(StateStream *stream) {
   write_u32(stream, alarm_timer);
   write_u32(stream, objectiveregisters1);
 
+  // Background AI
+  // save_background_ai_state(stream);
+
   // Sky
   save_sky_state(stream);
 
@@ -345,6 +437,9 @@ void load_global_state_pre_props(StateStream *stream) {
   // Sound states are dynamically allocated and all SFX are stopped before
   // loading. Let the alarm update create a fresh handle when it next runs.
   ptr_alarm_sfx = NULL;
+
+  // Background AI
+  // load_background_ai_state(stream);
 
   // Sky
   load_sky_state(stream);

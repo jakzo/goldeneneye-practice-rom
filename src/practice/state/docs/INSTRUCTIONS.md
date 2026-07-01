@@ -51,7 +51,13 @@ Add any general advice helpful for future agents working on this feature here. B
   `objectiveregisters1` stage-script bitfield. For example, Bunker 1 sets bit
   `0x100` when the alarm activates, then a separate controller uses it to
   dispatch reinforcements later. Restore the complete bitfield so delayed
-  stage-script actions agree with the restored alarm and mission state.
+  stage-script actions agree with the restored alarm and mission state. Level
+  background AI runs in `g_ActiveChrs`, whose entries are fake `ChrRecord`s
+  without models or props and are therefore absent from prop serialization.
+  Restore their AI list/offset, timer, flags, random value, presets, and other
+  interpreter state as global state. Otherwise Bunker 1's reinforcement script
+  retains its post-alarm timer and spawns guards again after loading a
+  pre-alarm state.
 - **Objective State**: Objective completion is split across several owners.
   `objectiveregisters1` contains mission-wide AI/script flags. Enter-room,
   deposit-item, and photograph progress is stored in mutable criteria records
