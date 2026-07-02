@@ -1,8 +1,10 @@
-#include "ultratypes.h"
 #include "practice_music.h"
+#include "ultratypes.h"
 #include <ultra64.h>
 
 extern u64 g_randomSeed;
+extern s32 speedgraphframes;
+extern void store_osgetcount(void);
 
 f32 g_TimeScale = 1.0f;
 f32 g_TimeScaleFinal = 1.0f;
@@ -13,6 +15,7 @@ s32 g_IsTimePaused = FALSE;
 s32 g_TimeScaleDeltaFrames = 1;
 u64 g_FrozenFrameRngSeed = 0;
 s32 g_PrevFrameTimeScaleDropped = FALSE;
+s32 g_PrePauseDeltaFrames = -1;
 
 void set_final_time_scale(f32 scale) {
   g_TimeScaleFinal = scale;
@@ -28,6 +31,9 @@ void set_time_scale(f32 scale) {
 }
 
 void pause() {
+  if (!g_IsTimePaused) {
+    g_PrePauseDeltaFrames = speedgraphframes;
+  }
   g_IsTimePaused = TRUE;
   set_final_time_scale(0.0f);
   practice_music_pause();
@@ -35,6 +41,11 @@ void pause() {
 
 void unpause() {
   practice_music_resume();
+  if (g_IsTimePaused) {
+    // Drop the wall-clock time spent paused so it isn't counted as elapsed
+    // game frames (catch-up) when time resumes
+    store_osgetcount();
+  }
   g_IsTimePaused = FALSE;
   set_final_time_scale(g_TimeScale);
 }

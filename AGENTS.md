@@ -98,6 +98,7 @@ The codebase heavily utilizes standard decompilation patterns to bridge C with y
     - See practice_debug.c for the implementation of each test case
 2. View logs
     - This will start the ares emulator and immediately do some action in a level
+    - ares is nearly cycle-accurate so if it has an issue, even a low-level hardware or timing one, it is almost certainly an issue on real hardware as well
     - The test will emit logs to the emulator's STDOUT which you can use to see how far the test got and whether it succeeded or hung
     - It will also start a GDB server on localhost:9123 which you can connect to while the emulator is running
     - The emulator takes about 5 seconds to boot up and another 5 seconds to run the test case (depending on its implementation)

@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include "unk_0C0A70.h"
 #include "practice/practice_timescale.h"
+#include "practice/practice_tests.h"
 
 // data
 s32 lastFrameCounter = -1;
@@ -56,6 +57,14 @@ void updateFrameCounters(s32 deltaFrames)
         deltaFrames = (s32)g_FractionalClockTimerAcc;
         g_FractionalClockTimerAcc -= (f32)deltaFrames;
     }
+    // On the first frame that actually advances after unpausing/loading, use
+    // the frame delta captured when the pause began instead of the wall-clock
+    // delta (which would otherwise dump all the paused time into one large
+    // catch-up frame)
+    if (!g_IsTimePaused && g_PrePauseDeltaFrames >= 0 && deltaFrames > 0) {
+        deltaFrames = g_PrePauseDeltaFrames;
+        g_PrePauseDeltaFrames = -1;
+    }
     g_TimeScaleDeltaFrames = deltaFrames;
     restore_rng_if_frame_dropped();
 #endif
@@ -63,6 +72,12 @@ void updateFrameCounters(s32 deltaFrames)
     lastFrameCounter = currentFrameCounter;
     currentFrameCounter = (s32) (currentFrameCounter + deltaFrames);
     speedgraphframes = deltaFrames;
+
+#ifdef TEST_CASE
+    // Per-frame test hook: called once the frame delta and RNG seeds are
+    // finalized (before this frame's gameplay consumes any RNG).
+    practice_tests_frame();
+#endif
 
     #ifdef BUGFIX_R1
     jpD_800484CC = (f32) deltaFrames;

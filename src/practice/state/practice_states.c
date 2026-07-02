@@ -8,6 +8,7 @@
 #include <ultra64.h>
 
 extern s32 g_CurrentStageToLoad;
+extern void store_osgetcount(void);
 
 /* Small header cache so we can validate without re-reading SRAM. */
 static SaveStateHeader g_SavedHeader;
@@ -116,6 +117,9 @@ void load_game_state(void) {
     practiceLogWarn("Failed to restore post-prop globals");
     return;
   }
+
+  // Re-baseline frame timer so time isn't dumped into the next deltaFrames
+  store_osgetcount();
 
   sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, CAMERA_BEEP1_SFX, 0);
   practiceLogInfo("State loaded");

@@ -5,14 +5,17 @@
 #include "chrobjhandler.h"
 #include "emu_log.h"
 #include "joy.h"
-#include "practice_timescale.h"
 #include "player.h"
+#include "practice_timescale.h"
 #include "state/practice_states.h"
 #include <bondgame.h>
 #include <ultra64.h>
 
 extern s32 g_ClockTimer;
 extern s32 chraiGetAIListID(AIRecord *AIList, bool *isGlobalAIList);
+extern u64 g_randomSeed;
+extern u64 g_chrObjRandomSeed;
+extern u64 g_tlbRandomSeed;
 
 static s32 g_save_test_timer = -1;
 static u32 case_delta = 0;
@@ -21,7 +24,7 @@ static bool after_frames(u32 num_frames) {
   return g_save_test_timer == case_delta;
 }
 
-void practice_tests_tick(void) {
+void practice_tests_tick() {
   if (g_save_test_timer == -1 && g_CameraMode == CAMERAMODE_FP) {
     g_save_test_timer = 0;
     emu_log("TEST_STARTED");
@@ -147,10 +150,9 @@ void practice_tests_tick(void) {
           ChrRecord *chr = &g_ChrSlots[i];
           if (chr->model != NULL) {
             bool is_global = FALSE;
-            s32 ailist_id =
-                chr->ailist != NULL
-                    ? chraiGetAIListID(chr->ailist, &is_global)
-                    : -1;
+            s32 ailist_id = chr->ailist != NULL
+                                ? chraiGetAIListID(chr->ailist, &is_global)
+                                : -1;
             emu_log("CHR slot=%d num=%d body=%d ai=%04x off=%d flags=%08x "
                     "hidden=%04x hear=%d action=%d",
                     i, chr->chrnum, chr->bodynum, ailist_id, chr->aioffset,
@@ -171,8 +173,7 @@ void practice_tests_tick(void) {
       alarmActivate();
       objectiveregisters1 |= 0x100;
     } else if (after_frames(600)) {
-      emu_log("PRE_LOAD alarm=%d flags=%08x", alarm_timer,
-              objectiveregisters1);
+      emu_log("PRE_LOAD alarm=%d flags=%08x", alarm_timer, objectiveregisters1);
       emu_log("TRIGGER_LOAD");
       load_game_state();
       emu_log("LOAD_DONE");
@@ -233,3 +234,75 @@ void practice_tests_tick(void) {
 #endif
   }
 }
+
+#if TEST_CASE == RNG_LOAD
+extern s32 speedgraphframes; // finalized per-frame delta
+
+// Determinism check for loading a save state. Save once, then repeatedly load
+// the state and log LOG_FRAMES consecutive frames of (deltaFrames, RNG seeds).
+// Each iteration replays from the identical saved state, so if load + gameplay
+// is deterministic every iteration must print the exact same per-frame
+// sequence. Divergence in a given column pinpoints what isn't deterministic
+// (e.g. deltaFrames jitter from wall-clock timing, or g_tlbRandomSeed which the
+// save state does not restore).
+//
+// Runs from updateFrameCounters (via practice_tests_frame) once the frame delta
+// and RNG seeds are finalized for the frame, before gameplay consumes any RNG.
+void practice_tests_frame() {
+  enum { PH_WAIT_FP, PH_SETTLE, PH_RUN, PH_DONE };
+  static s32 phase = PH_WAIT_FP;
+  static s32 iteration = 0;
+  static s32 frame = 0;
+  static s32 settle = 0;
+  const s32 SETTLE_FRAMES = 30;
+  const s32 LOG_FRAMES = 30;
+  const s32 NUM_ITERATIONS = 10;
+
+  switch (phase) {
+  case PH_WAIT_FP:
+    if (g_CameraMode == CAMERAMODE_FP) {
+      emu_log("TEST_STARTED");
+      phase = PH_SETTLE;
+      settle = 0;
+    }
+    break;
+
+  case PH_SETTLE:
+    // Let the level settle before capturing the reference state.
+    if (++settle >= SETTLE_FRAMES) {
+      emu_log("TRIGGER_SAVE");
+      save_game_state();
+      emu_log("SAVE_DONE");
+      load_game_state();
+      iteration = 0;
+      frame = 0;
+      phase = PH_RUN;
+    }
+    break;
+
+  case PH_RUN:
+    emu_log("ITER %d f=%d delta=%d rng=%08x%08x chrobj=%08x%08x tlb=%08x%08x",
+            iteration, frame, speedgraphframes, (u32)(g_randomSeed >> 32),
+            (u32)g_randomSeed, (u32)(g_chrObjRandomSeed >> 32),
+            (u32)g_chrObjRandomSeed, (u32)(g_tlbRandomSeed >> 32),
+            (u32)g_tlbRandomSeed);
+    frame++;
+    if (frame >= LOG_FRAMES) {
+      iteration++;
+      if (iteration >= NUM_ITERATIONS) {
+        emu_log("TEST_COMPLETE");
+        phase = PH_DONE;
+      } else {
+        load_game_state();
+        frame = 0;
+      }
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+#else
+void practice_tests_frame() {}
+#endif
